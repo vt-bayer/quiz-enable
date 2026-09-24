@@ -1,4 +1,4 @@
-* Quiz ENABLE — paleta clara */
+/* Quiz ENABLE — paleta clara */
 :root {
   --fundo-pagina: #F5F9FC;
   --cartao: #FFFFFF;
@@ -149,15 +149,6 @@ body {
 
 #tela-inicio.tela-ativa {
   margin-top: clamp(1rem, 8vh, 4rem);
-}
-
-.logo-enable {
-  display: block;
-  width: 100%;
-  max-width: 220px;
-  height: auto;
-  margin: 0 auto 1.5rem;
-  background: transparent;
 }
 
 h1 {
@@ -828,11 +819,6 @@ h1 {
     font-size: 1rem;
   }
 
-  .logo-enable {
-    max-width: 170px;
-    margin-bottom: 1.5rem;
-  }
-
   .page {
     padding: 1.25rem 1rem 2rem;
   }
@@ -875,3 +861,17 @@ h1 {
   }
 }
 
+.logo-enable {
+  display: block;
+  width: 180px;
+  max-width: 70vw;
+  height: auto;
+  object-fit: contain;
+  margin: 0 auto 1.5rem;
+}
+
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
