@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Área administrativa do Quiz ENABLE">
+  <title>Área administrativa | Quiz ENABLE</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body class="pagina-admin">
+  <a class="skip-link" href="#conteudo-admin">Ir para o conteúdo principal</a>
+
+  <div class="page page-admin">
+    <header class="site-header header-admin" role="banner">
+      <p class="brand">ENABLE</p>
+      <a href="index.html">Voltar ao quiz</a>
+    </header>
+
+    <main id="conteudo-admin" class="main main-admin" tabindex="-1">
+      <section class="tela tela-admin" aria-labelledby="titulo-admin">
+        <h1 id="titulo-admin">Área administrativa</h1>
+        <p class="tagline">Quiz ENABLE — dados no Supabase</p>
+
+        <div class="aviso-config" role="status" aria-live="polite">
+          <p>
+            Área administrativa conectada ao Supabase. Faça login com seu usuário do projeto para listar, excluir e exportar participantes.
+          </p>
+        </div>
+
+        <section id="secao-login" class="secao-login" aria-labelledby="titulo-login">
+          <h2 id="titulo-login" class="titulo-ranking">Login administrativo</h2>
+          <form id="form-login" class="form-login" novalidate>
+            <div class="campo">
+              <label for="login-email">E-mail</label>
+              <input
+                type="email"
+                id="login-email"
+                name="email"
+                required
+                autocomplete="username"
+                aria-required="true"
+                aria-describedby="login-email-erro"
+              >
+              <p id="login-email-erro" class="erro-campo" role="alert" hidden></p>
+            </div>
+            <div class="campo">
+              <label for="login-senha">Senha</label>
+              <input
+                type="password"
+                id="login-senha"
+                name="senha"
+                required
+                autocomplete="current-password"
+                aria-required="true"
+                aria-describedby="login-senha-erro"
+              >
+              <p id="login-senha-erro" class="erro-campo" role="alert" hidden></p>
+            </div>
+            <button type="submit" id="btn-entrar" class="btn btn-primario">
+              Entrar
+            </button>
+          </form>
+        </section>
+
+        <section id="secao-painel" class="secao-painel" hidden aria-labelledby="titulo-painel">
+          <div class="painel-topo">
+            <h2 id="titulo-painel" class="titulo-ranking">Participantes</h2>
+            <p id="usuario-logado" class="ajuda"></p>
+            <button type="button" id="btn-sair" class="btn btn-secundario">
+              Sair
+            </button>
+          </div>
+
+          <div class="admin-toolbar">
+            <div class="campo campo-busca">
+              <label for="busca-nome">Buscar por nome</label>
+              <input
+                type="search"
+                id="busca-nome"
+                name="busca"
+                autocomplete="off"
+                placeholder="Digite parte do nome"
+                aria-describedby="busca-ajuda"
+              >
+              <p id="busca-ajuda" class="ajuda">A tabela é filtrada conforme você digita.</p>
+            </div>
+
+            <div class="acoes-admin" role="group" aria-label="Ações administrativas">
+              <button type="button" id="btn-atualizar" class="btn btn-secundario">
+                Atualizar lista
+              </button>
+              <button type="button" id="btn-exportar" class="btn btn-primario">
+                Exportar participantes para Excel
+              </button>
+              <button type="button" id="btn-limpar-todos" class="btn btn-perigo">
+                Limpar todos os resultados
+              </button>
+            </div>
+          </div>
+
+          <p id="resumo-tabela" class="resumo-tabela" aria-live="polite"></p>
+
+          <div class="tabela-wrap">
+            <table id="tabela-participantes" class="tabela-participantes">
+              <caption>
+                Participantes registrados no Supabase
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">Posição</th>
+                  <th scope="col">Nome</th>
+                  <th scope="col">Tipo</th>
+                  <th scope="col">Matrícula</th>
+                  <th scope="col">Empresa</th>
+                  <th scope="col">Pontos</th>
+                  <th scope="col">Acertos</th>
+                  <th scope="col">Tempo</th>
+                  <th scope="col">Data e hora</th>
+                  <th scope="col">Prêmio da roleta</th>
+                  <th scope="col">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="corpo-tabela"></tbody>
+            </table>
+          </div>
+
+          <p id="tabela-vazia" class="tabela-vazia" hidden>
+            Nenhum participante encontrado.
+          </p>
+        </section>
+      </section>
+    </main>
+
+    <div
+      id="avisos-admin"
+      class="avisos"
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+    ></div>
+  </div>
+
+  <div
+    id="dialogo-confirmacao"
+    class="dialogo"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="dialogo-titulo"
+    aria-describedby="dialogo-texto"
+    hidden
+  >
+    <div class="dialogo-painel">
+      <h2 id="dialogo-titulo" class="dialogo-titulo" tabindex="-1"></h2>
+      <p id="dialogo-texto" class="dialogo-texto"></p>
+      <div class="dialogo-acoes" role="group" aria-label="Confirmação">
+        <button type="button" id="dialogo-cancelar" class="btn btn-secundario">
+          Cancelar
+        </button>
+        <button type="button" id="dialogo-confirmar" class="btn btn-perigo">
+          Confirmar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
+  <script src="supabase-client.js"></script>
+  <script src="admin.js" defer></script>
+</body>
+</html>

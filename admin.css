@@ -1,0 +1,305 @@
+/* Área administrativa — estende a paleta clara do quiz */
+.pagina-admin .page-admin {
+  max-width: none;
+}
+
+.pagina-admin .main-admin {
+  max-width: 72rem;
+  width: 100%;
+}
+
+.pagina-admin .tela-admin {
+  max-width: none;
+}
+
+.header-admin {
+  max-width: 72rem;
+}
+
+.header-admin a[href="index.html"] {
+  font-weight: 700;
+  color: var(--azul);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.header-admin a[href="index.html"]:focus-visible {
+  outline: var(--foco);
+  outline-offset: var(--foco-offset);
+  background: var(--foco-fundo);
+  border-radius: 0.25rem;
+}
+
+.aviso-config {
+  margin: 0 0 1.25rem;
+  padding: 1rem 1.15rem;
+  background: #E8F4FA;
+  border: 0.15rem solid var(--azul);
+  border-left-width: 0.35rem;
+  border-radius: var(--raio);
+  color: var(--texto);
+  font-weight: 600;
+}
+
+.aviso-config p {
+  margin: 0;
+}
+
+.secao-login {
+  margin-bottom: 1.5rem;
+  padding: 1.25rem;
+  border: 0.15rem solid var(--borda);
+  border-radius: var(--raio);
+  background: #F7FBFD;
+}
+
+.form-login {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 28rem;
+}
+
+.painel-topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.painel-topo .titulo-ranking {
+  margin: 0;
+  flex: 1 1 auto;
+}
+
+.btn-voltar {
+  min-height: 2.5rem;
+  padding: 0.4rem 0.85rem;
+  font-size: 0.95rem;
+  width: auto;
+}
+
+.aviso-local {
+  margin: 0 0 1.75rem;
+  padding: 1rem 1.15rem;
+  background: #FFF8E8;
+  border: 0.15rem solid #C48A00;
+  border-radius: var(--raio);
+  color: var(--texto);
+}
+
+.aviso-local-titulo {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+  color: #6B4A00;
+}
+
+.aviso-local p {
+  margin: 0;
+  color: var(--texto);
+}
+
+.admin-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.campo-busca {
+  max-width: 28rem;
+}
+
+.acoes-admin {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.btn-perigo {
+  background: var(--cartao);
+  color: var(--incorreta-texto);
+  border-color: var(--incorreta-borda);
+}
+
+.btn-perigo:hover:not(:disabled) {
+  background: var(--incorreta-fundo);
+}
+
+.btn-perigo:focus-visible {
+  outline: var(--foco);
+  outline-offset: var(--foco-offset);
+  background: var(--incorreta-fundo);
+}
+
+.resumo-tabela {
+  margin: 0 0 1rem;
+  font-weight: 600;
+  color: var(--texto-secundario);
+}
+
+.tabela-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 0.15rem solid var(--borda);
+  border-radius: var(--raio);
+  background: var(--cartao);
+}
+
+.tabela-participantes {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 72rem;
+}
+
+.tabela-participantes caption {
+  caption-side: top;
+  padding: 0.85rem 1rem;
+  text-align: left;
+  font-weight: 700;
+  color: var(--texto);
+  background: #F7FBFD;
+  border-bottom: 0.15rem solid var(--borda);
+}
+
+.tabela-participantes th,
+.tabela-participantes td {
+  padding: 0.75rem 0.85rem;
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: 0.1rem solid var(--borda);
+  color: var(--texto);
+}
+
+.tabela-participantes thead th {
+  background: #E8F4FA;
+  color: var(--texto);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.tabela-participantes tbody tr:nth-child(even) {
+  background: #F7FBFD;
+}
+
+.tabela-participantes tbody tr:hover {
+  background: var(--foco-fundo);
+}
+
+.tabela-participantes tbody tr:focus-within {
+  outline: var(--foco);
+  outline-offset: -0.15rem;
+  background: var(--foco-fundo);
+}
+
+.btn-excluir {
+  min-height: 2.4rem;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.95rem;
+  width: auto;
+}
+
+.tabela-vazia {
+  margin: 1rem 0 0;
+  padding: 1rem;
+  border: 0.15rem dashed var(--borda);
+  border-radius: var(--raio);
+  color: var(--texto-secundario);
+  font-weight: 600;
+}
+
+/* Diálogo acessível */
+.dialogo {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: rgba(0, 59, 92, 0.45);
+}
+
+.dialogo[hidden] {
+  display: none !important;
+}
+
+.dialogo-painel {
+  width: min(100%, 28rem);
+  padding: 1.35rem 1.25rem;
+  background: var(--cartao);
+  border: 0.2rem solid var(--texto);
+  border-radius: 0.75rem;
+  box-shadow: 0 0.5rem 1.5rem rgba(0, 59, 92, 0.2);
+}
+
+.dialogo-titulo {
+  margin: 0 0 0.75rem;
+  font-size: 1.25rem;
+  color: var(--texto);
+}
+
+.dialogo-titulo:focus {
+  outline: var(--foco);
+  outline-offset: var(--foco-offset);
+  background: var(--foco-fundo);
+  border-radius: 0.25rem;
+}
+
+.dialogo-texto {
+  margin: 0 0 1.25rem;
+  color: var(--texto);
+}
+
+.dialogo-acoes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.dialogo-forte .dialogo-painel {
+  border-color: var(--incorreta-borda);
+}
+
+.dialogo-forte .dialogo-titulo {
+  color: var(--incorreta-texto);
+}
+
+@media (min-width: 640px) {
+  .acoes-admin {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .acoes-admin .btn {
+    width: auto;
+    flex: 0 1 auto;
+  }
+
+  .dialogo-acoes {
+    flex-direction: row;
+    justify-content: flex-end;
+  }
+
+  .dialogo-acoes .btn {
+    width: auto;
+    min-width: 8rem;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .aviso-local {
+    border-width: 0.25rem;
+    border-color: var(--texto);
+  }
+
+  .tabela-participantes th,
+  .tabela-participantes td {
+    border-bottom-width: 0.15rem;
+  }
+
+  .dialogo-painel {
+    border-width: 0.25rem;
+  }
+}

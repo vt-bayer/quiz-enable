@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Quiz ENABLE — Inclusão, equidade e transformação">
+  <title>Quiz ENABLE</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <a class="skip-link" href="#conteudo-principal">Ir para o conteúdo principal</a>
+
+  <div class="page">
+    <header class="site-header" role="banner">
+      <p class="brand">ENABLE</p>
+      <button type="button" id="btn-voz-global" class="btn btn-voz-topo" aria-pressed="false" hidden>
+        Ativar comando por voz
+      </button>
+    </header>
+
+    <main id="conteudo-principal" class="main" tabindex="-1">
+      <!-- Tela inicial -->
+      <section id="tela-inicio" class="tela tela-ativa" aria-labelledby="titulo-quiz">
+        <h1 id="titulo-quiz">Quiz ENABLE</h1>
+        <p class="tagline">Inclusão, equidade e transformação</p>
+
+        <form id="form-inicio" class="form-inicio" novalidate>
+          <div class="abas-cadastro">
+            <div
+              class="lista-abas"
+              role="tablist"
+              aria-label="Tipo de participante"
+            >
+              <button
+                type="button"
+                id="aba-colaborador"
+                class="aba aba-ativa"
+                role="tab"
+                aria-selected="true"
+                aria-controls="painel-colaborador"
+                tabindex="0"
+              >
+                <span class="aba-texto">Colaboradores Bayer</span>
+                <span class="aba-estado sr-only">(selecionada)</span>
+              </button>
+              <button
+                type="button"
+                id="aba-terceiro"
+                class="aba"
+                role="tab"
+                aria-selected="false"
+                aria-controls="painel-terceiro"
+                tabindex="-1"
+              >
+                <span class="aba-texto">Terceiros</span>
+                <span class="aba-estado sr-only"></span>
+              </button>
+            </div>
+
+            <div
+              id="painel-colaborador"
+              class="painel-aba"
+              role="tabpanel"
+              aria-labelledby="aba-colaborador"
+            >
+              <p id="instrucao-colaborador" class="instrucao-aba">
+                Informe sua matrícula para registrar uma participação oficial.
+              </p>
+
+              <div class="campo">
+                <label for="nome-colaborador">
+                  Nome completo <span class="obrigatorio" aria-hidden="true">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="nome-colaborador"
+                  name="nome_colaborador"
+                  required
+                  autocomplete="name"
+                  aria-required="true"
+                  aria-describedby="instrucao-colaborador nome-colaborador-ajuda nome-colaborador-erro"
+                  maxlength="120"
+                >
+                <p id="nome-colaborador-ajuda" class="ajuda">Campo obrigatório.</p>
+                <p id="nome-colaborador-erro" class="erro-campo" role="alert" hidden></p>
+              </div>
+
+              <div class="campo">
+                <label for="matricula-colaborador">
+                  Matrícula <span class="obrigatorio" aria-hidden="true">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="matricula-colaborador"
+                  name="matricula"
+                  required
+                  inputmode="text"
+                  autocomplete="off"
+                  aria-required="true"
+                  aria-describedby="matricula-ajuda matricula-erro"
+                  maxlength="40"
+                  spellcheck="false"
+                >
+                <p id="matricula-ajuda" class="ajuda">
+                  Informe a matrícula como texto. Zeros à esquerda são aceitos.
+                </p>
+                <p id="matricula-erro" class="erro-campo" role="alert" hidden></p>
+              </div>
+            </div>
+
+            <div
+              id="painel-terceiro"
+              class="painel-aba"
+              role="tabpanel"
+              aria-labelledby="aba-terceiro"
+              hidden
+            >
+              <p id="instrucao-terceiro" class="instrucao-aba">
+                Informe sua empresa para identificação no evento.
+              </p>
+
+              <div class="campo">
+                <label for="nome-terceiro">
+                  Nome completo <span class="obrigatorio" aria-hidden="true">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="nome-terceiro"
+                  name="nome_terceiro"
+                  required
+                  autocomplete="name"
+                  aria-required="true"
+                  aria-describedby="instrucao-terceiro nome-terceiro-ajuda nome-terceiro-erro"
+                  maxlength="120"
+                >
+                <p id="nome-terceiro-ajuda" class="ajuda">Campo obrigatório.</p>
+                <p id="nome-terceiro-erro" class="erro-campo" role="alert" hidden></p>
+              </div>
+
+              <div class="campo">
+                <label for="empresa-terceiro">
+                  Empresa <span class="obrigatorio" aria-hidden="true">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="empresa-terceiro"
+                  name="empresa"
+                  required
+                  autocomplete="organization"
+                  aria-required="true"
+                  aria-describedby="empresa-ajuda empresa-erro"
+                  maxlength="120"
+                >
+                <p id="empresa-ajuda" class="ajuda">Campo obrigatório.</p>
+                <p id="empresa-erro" class="erro-campo" role="alert" hidden></p>
+              </div>
+            </div>
+          </div>
+
+          <div class="acoes" role="group" aria-label="Ações do quiz">
+            <button type="submit" id="btn-comecar" class="btn btn-primario">
+              Começar quiz
+            </button>
+            <button type="button" id="btn-voz" class="btn btn-secundario" aria-pressed="false">
+              Ativar comando por voz
+            </button>
+          </div>
+        </form>
+
+        <p class="link-admin-wrap">
+          <a href="admin.html" class="link-admin" aria-label="Abrir área administrativa do Quiz ENABLE">
+            Área administrativa
+          </a>
+        </p>
+      </section>
+
+      <!-- Tela do quiz -->
+      <section id="tela-quiz" class="tela" aria-labelledby="titulo-pergunta" hidden>
+        <p id="progresso-quiz" class="progresso" aria-live="polite"></p>
+        <p id="meta-pergunta" class="meta-pergunta"></p>
+
+        <h2 id="titulo-pergunta" class="titulo-pergunta" tabindex="-1"></h2>
+
+        <div class="acoes-pergunta">
+          <button type="button" id="btn-ouvir" class="btn btn-secundario">
+            Ouvir pergunta
+          </button>
+        </div>
+
+        <fieldset id="campo-alternativas" class="campo-alternativas">
+          <legend class="sr-only">Alternativas</legend>
+          <div id="lista-alternativas" class="lista-alternativas" role="radiogroup" aria-labelledby="titulo-pergunta"></div>
+        </fieldset>
+
+        <div id="feedback" class="feedback" hidden aria-live="polite" aria-atomic="true">
+          <p id="feedback-status" class="feedback-status"></p>
+          <p id="feedback-texto" class="feedback-texto"></p>
+        </div>
+
+        <div class="acoes" role="group" aria-label="Controles da pergunta">
+          <button type="button" id="btn-confirmar" class="btn btn-primario" disabled>
+            Confirmar resposta
+          </button>
+          <button type="button" id="btn-proxima" class="btn btn-secundario" hidden disabled>
+            Próxima pergunta
+          </button>
+        </div>
+      </section>
+
+      <!-- Tela de resultado -->
+      <section id="tela-resultado" class="tela" aria-labelledby="titulo-resultado" hidden>
+        <h2 id="titulo-resultado" class="titulo-secao" tabindex="-1">Resultado</h2>
+        <p id="resumo-resultado" class="resumo-resultado"></p>
+        <p id="msg-ranking" class="msg-ranking" aria-live="polite"></p>
+
+        <div class="acoes" role="group" aria-label="Ações do resultado">
+          <button type="button" id="btn-roleta" class="btn btn-primario">
+            Girar roleta de brindes
+          </button>
+          <button type="button" id="btn-jogar-novamente" class="btn btn-secundario">
+            Jogar novamente
+          </button>
+        </div>
+
+        <div id="area-roleta" class="area-roleta" hidden>
+          <h3 id="titulo-roleta" class="titulo-roleta">Roleta de brindes</h3>
+          <div class="roleta-wrap" aria-hidden="true">
+            <div class="roleta-ponteiro"></div>
+            <canvas id="canvas-roleta" width="320" height="320" role="img" aria-labelledby="titulo-roleta resultado-roleta"></canvas>
+          </div>
+          <p id="resultado-roleta" class="resultado-roleta" aria-live="assertive" aria-atomic="true"></p>
+        </div>
+
+        <section class="ranking-bloco" aria-labelledby="titulo-ranking">
+          <h3 id="titulo-ranking" class="titulo-ranking">Top 10</h3>
+          <div id="lista-ranking" class="lista-ranking" role="list"></div>
+        </section>
+      </section>
+    </main>
+
+    <div
+      id="avisos"
+      class="avisos"
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+    ></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
+  <script src="supabase-client.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
