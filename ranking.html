@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Ranking público — Quiz ENABLE" />
+  <title>Ranking — Quiz ENABLE</title>
+  <meta property="og:title" content="Ranking — Quiz ENABLE" />
+  <meta property="og:description" content="Ranking global em tempo real do Quiz ENABLE" />
+  <link rel="stylesheet" href="ranking.css" />
+</head>
+<body>
+  <a class="skip-link" href="#conteudo-ranking">Ir para o ranking</a>
+
+  <div class="page-ranking" id="app-ranking">
+    <header class="topo-ranking" role="banner">
+      <div class="topo-esq">
+        <p class="brand">ENABLE</p>
+        <h1 id="titulo-ranking-pagina">Ranking</h1>
+        <p id="subtitulo-fase" class="subtitulo-fase"></p>
+      </div>
+      <div class="topo-dir">
+        <p id="status-ranking" class="selo-status" aria-live="polite">Carregando…</p>
+        <p id="ultima-atualizacao" class="ultima-atualizacao" aria-live="polite"></p>
+        <p id="conexao-status" class="conexao-status" hidden>Sem conexão. Exibindo a última atualização disponível.</p>
+      </div>
+    </header>
+
+    <nav class="nav-fases" aria-label="Selecionar fase do ranking" id="nav-fases">
+      <a class="chip-fase" href="ranking.html?fase=fase-1" data-fase="fase-1">Fase 1</a>
+      <a class="chip-fase" href="ranking.html?fase=fase-2" data-fase="fase-2">Fase 2</a>
+      <a class="chip-fase" href="ranking.html?fase=fase-3" data-fase="fase-3">Fase 3</a>
+      <a class="chip-fase" href="ranking.html?modo=telao" data-fase="telao">Modo telão</a>
+      <a class="chip-fase chip-quiz" href="index.html">Ir ao quiz</a>
+    </nav>
+
+    <main id="conteudo-ranking" class="conteudo-ranking" tabindex="-1">
+      <p id="mensagem-fase" class="mensagem-fase" role="status" aria-live="polite"></p>
+
+      <div class="tabela-wrap">
+        <table class="tabela-ranking" id="tabela-ranking-publico">
+          <caption class="sr-only">Ranking público da fase</caption>
+          <thead>
+            <tr>
+              <th scope="col">Posição</th>
+              <th scope="col">Participante</th>
+              <th scope="col">Pontuação</th>
+              <th scope="col">Acertos</th>
+              <th scope="col">Tempo</th>
+            </tr>
+          </thead>
+          <tbody id="corpo-ranking-publico">
+            <tr><td colspan="5">Carregando ranking oficial…</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <aside id="bloco-qr" class="bloco-qr" hidden>
+        <p>Acesse o quiz pelo celular</p>
+        <img id="qr-code" alt="QR Code para o quiz ENABLE" width="160" height="160" />
+      </aside>
+    </main>
+
+    <footer class="rodape-ranking">
+      <p>Dados oficiais do banco remoto · Atualização em tempo real</p>
+    </footer>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
+  <script src="supabase-client.js"></script>
+  <script src="quiz-data.js"></script>
+  <script src="quiz-status.js"></script>
+  <script src="quiz-store.js"></script>
+  <script src="ranking.js"></script>
+</body>
+</html>
