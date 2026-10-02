@@ -79,12 +79,17 @@
             Status
             <select id="filtro-status">
               <option value="concluida">Concluídas</option>
-              <option value="todas">Todas</option>
+              <option value="todas">Todas (exceto excluídas)</option>
               <option value="em_andamento">Em andamento</option>
               <option value="incompleta">Incompletas</option>
               <option value="expirada">Expiradas</option>
               <option value="cancelada">Canceladas</option>
+              <option value="excluida">Excluídas</option>
             </select>
+          </label>
+          <label class="check-inline">
+            <input type="checkbox" id="filtro-exibir-excluidos" />
+            Exibir participações excluídas
           </label>
           <label>
             Contagem
@@ -119,7 +124,7 @@
 
       <div id="painel-fases" role="tabpanel" aria-labelledby="tab-fases" hidden>
         <h2>Gestão de Fases</h2>
-        <p class="subtitulo-secao">Os horários identificam cada fase. Pausar ou encerrar é o que impede novas participações.</p>
+        <p class="subtitulo-secao">Os horários servem só para identificar as fases. Pausar ou encerrar é o que impede novas participações.</p>
         <div id="lista-fases" class="lista-fases"></div>
       </div>
 
@@ -192,6 +197,24 @@
 
       <div id="painel-rankings" role="tabpanel" aria-labelledby="tab-rankings" hidden>
         <h2>Rankings administrativos</h2>
+        <p class="subtitulo-secao">
+          <a href="ranking.html" target="_blank" rel="noopener">Abrir ranking público</a>
+          ·
+          <a href="ranking.html?modo=telao" target="_blank" rel="noopener">Abrir modo telão</a>
+        </p>
+
+        <form class="filtros" id="form-privacidade" aria-label="Privacidade do nome no ranking público">
+          <label>
+            Exibição do nome no ranking público
+            <select id="privacidade-nome">
+              <option value="primeiro_inicial">Primeiro nome + inicial (padrão)</option>
+              <option value="completo">Nome completo</option>
+              <option value="mascarado">Nome parcialmente mascarado</option>
+            </select>
+          </label>
+          <button type="button" id="btn-salvar-privacidade" class="btn btn-secundario">Salvar privacidade</button>
+        </form>
+
         <form class="filtros" id="filtros-ranking-admin">
           <label>
             Fase
@@ -265,6 +288,34 @@
       <div class="grupo-botoes">
         <button type="button" id="confirmar-auditoria" class="btn btn-primario">Confirmar</button>
         <button type="button" id="cancelar-auditoria" class="btn btn-secundario">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-excluir" class="modal" hidden>
+    <div class="modal-conteudo" role="dialog" aria-modal="true" aria-labelledby="titulo-excluir">
+      <h2 id="titulo-excluir">Excluir participação</h2>
+      <p id="resumo-excluir"></p>
+      <label>
+        Motivo (obrigatório)
+        <select id="motivo-exclusao">
+          <option value="">Selecione…</option>
+          <option value="Participação duplicada">Participação duplicada</option>
+          <option value="Cadastro incorreto">Cadastro incorreto</option>
+          <option value="Uso indevido">Uso indevido</option>
+          <option value="Resultado inválido">Resultado inválido</option>
+          <option value="Solicitação do responsável">Solicitação do responsável</option>
+          <option value="Outro">Outro</option>
+        </select>
+      </label>
+      <label>
+        Detalhe (se Outro)
+        <input type="text" id="motivo-exclusao-detalhe" maxlength="200" />
+      </label>
+      <p class="ajuda">O resultado sairá do ranking e as posições serão recalculadas.</p>
+      <div class="grupo-botoes">
+        <button type="button" id="confirmar-excluir" class="btn btn-primario">Excluir participação</button>
+        <button type="button" id="cancelar-excluir" class="btn btn-secundario">Cancelar</button>
       </div>
     </div>
   </div>
