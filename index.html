@@ -32,149 +32,83 @@
     </header>
 
     <main id="conteudo-principal" class="main" tabindex="-1">
-      <!-- Tela inicial -->
-      <section id="tela-inicio" class="tela tela-ativa" aria-labelledby="titulo-quiz">
+      <!-- Status / bloqueio -->
+      <section id="tela-status" class="tela" aria-labelledby="titulo-status" hidden>
+        <img src="logo-enable.png" alt="Logo ENABLE — Habilidades Diversas" class="logo-enable">
+        <h1 id="titulo-status">Quiz ENABLE</h1>
+        <p id="msg-status" class="msg-status" role="status" aria-live="polite"></p>
+        <div id="bloco-ranking-status" class="ranking-bloco" hidden>
+          <h2 id="titulo-ranking-status" class="titulo-ranking">Ranking da fase</h2>
+          <div id="lista-ranking-status" class="lista-ranking" role="list"></div>
+        </div>
+        <p class="link-admin-wrap">
+          <a href="admin.html" class="link-admin" aria-label="Abrir área administrativa do Quiz ENABLE">
+            Área administrativa
+          </a>
+        </p>
+      </section>
+
+      <!-- Identificação -->
+      <section id="tela-inicio" class="tela tela-ativa" aria-labelledby="titulo-quiz" hidden>
         <img src="logo-enable.png" alt="Logo ENABLE — Habilidades Diversas" class="logo-enable">
         <h1 id="titulo-quiz">Quiz ENABLE</h1>
         <p class="tagline">Inclusão, equidade e transformação</p>
+        <p id="info-fase-inicio" class="info-fase" aria-live="polite"></p>
 
         <form id="form-inicio" class="form-inicio" novalidate>
-          <div class="abas-cadastro">
-            <div
-              class="lista-abas"
-              role="tablist"
-              aria-label="Tipo de participante"
+          <fieldset class="campo campo-fase">
+            <legend>Fase do quiz <span class="obrigatorio" aria-hidden="true">*</span></legend>
+            <div id="opcoes-fase" class="opcoes-fase" role="radiogroup" aria-label="Selecione a fase"></div>
+            <p id="fase-erro" class="erro-campo" role="alert" hidden></p>
+            <p class="ajuda">Os horários identificam cada fase; você pode iniciar a qualquer momento.</p>
+          </fieldset>
+
+          <div class="campo">
+            <label for="nome-participante">
+              Nome completo <span class="obrigatorio" aria-hidden="true">*</span>
+            </label>
+            <input
+              type="text"
+              id="nome-participante"
+              name="nome"
+              required
+              autocomplete="name"
+              aria-required="true"
+              aria-describedby="nome-ajuda nome-erro"
+              maxlength="120"
             >
-              <button
-                type="button"
-                id="aba-colaborador"
-                class="aba aba-ativa"
-                role="tab"
-                aria-selected="true"
-                aria-controls="painel-colaborador"
-                tabindex="0"
-              >
-                <span class="aba-texto">Colaboradores Bayer</span>
-                <span class="aba-estado sr-only">(selecionada)</span>
-              </button>
-              <button
-                type="button"
-                id="aba-terceiro"
-                class="aba"
-                role="tab"
-                aria-selected="false"
-                aria-controls="painel-terceiro"
-                tabindex="-1"
-              >
-                <span class="aba-texto">Terceiros</span>
-                <span class="aba-estado sr-only"></span>
-              </button>
+            <p id="nome-ajuda" class="ajuda">Campo obrigatório.</p>
+            <p id="nome-erro" class="erro-campo" role="alert" hidden></p>
+          </div>
+
+          <fieldset class="campo campo-publico">
+            <legend>Tipo de público <span class="obrigatorio" aria-hidden="true">*</span></legend>
+            <div class="opcoes-publico" role="radiogroup" aria-labelledby="legenda-publico" aria-required="true">
+              <span id="legenda-publico" class="sr-only">Tipo de público</span>
+              <label class="card-publico">
+                <input type="radio" name="tipo_publico" id="publico-bayer" value="bayer" required>
+                <span class="card-publico-texto">Sou colaborador(a) Bayer</span>
+              </label>
+              <label class="card-publico">
+                <input type="radio" name="tipo_publico" id="publico-parceiro" value="parceiro" required>
+                <span class="card-publico-texto">Sou parceiro(a)</span>
+              </label>
             </div>
+            <p id="publico-erro" class="erro-campo" role="alert" hidden></p>
+          </fieldset>
 
-            <div
-              id="painel-colaborador"
-              class="painel-aba"
-              role="tabpanel"
-              aria-labelledby="aba-colaborador"
-            >
-              <p id="instrucao-colaborador" class="instrucao-aba">
-                Informe sua matrícula para registrar uma participação oficial.
-              </p>
+          <div class="campo" id="campo-empresa" hidden>
+            <label for="empresa-parceira">Empresa parceira (opcional)</label>
+            <input type="text" id="empresa-parceira" name="empresa" maxlength="120" autocomplete="organization">
+          </div>
 
-              <div class="campo">
-                <label for="nome-colaborador">
-                  Nome completo <span class="obrigatorio" aria-hidden="true">*</span>
-                </label>
-                <input
-                  type="text"
-                  id="nome-colaborador"
-                  name="nome_colaborador"
-                  required
-                  autocomplete="name"
-                  aria-required="true"
-                  aria-describedby="instrucao-colaborador nome-colaborador-ajuda nome-colaborador-erro"
-                  maxlength="120"
-                >
-                <p id="nome-colaborador-ajuda" class="ajuda">Campo obrigatório.</p>
-                <p id="nome-colaborador-erro" class="erro-campo" role="alert" hidden></p>
-              </div>
-
-              <div class="campo">
-                <label for="matricula-colaborador">
-                  Matrícula <span class="obrigatorio" aria-hidden="true">*</span>
-                </label>
-                <input
-                  type="text"
-                  id="matricula-colaborador"
-                  name="matricula"
-                  required
-                  inputmode="text"
-                  autocomplete="off"
-                  aria-required="true"
-                  aria-describedby="matricula-ajuda matricula-erro"
-                  maxlength="40"
-                  spellcheck="false"
-                >
-                <p id="matricula-ajuda" class="ajuda">
-                  Informe a matrícula como texto. Zeros à esquerda são aceitos.
-                </p>
-                <p id="matricula-erro" class="erro-campo" role="alert" hidden></p>
-              </div>
-            </div>
-
-            <div
-              id="painel-terceiro"
-              class="painel-aba"
-              role="tabpanel"
-              aria-labelledby="aba-terceiro"
-              hidden
-            >
-              <p id="instrucao-terceiro" class="instrucao-aba">
-                Informe sua empresa para identificação no evento.
-              </p>
-
-              <div class="campo">
-                <label for="nome-terceiro">
-                  Nome completo <span class="obrigatorio" aria-hidden="true">*</span>
-                </label>
-                <input
-                  type="text"
-                  id="nome-terceiro"
-                  name="nome_terceiro"
-                  required
-                  autocomplete="name"
-                  aria-required="true"
-                  aria-describedby="instrucao-terceiro nome-terceiro-ajuda nome-terceiro-erro"
-                  maxlength="120"
-                >
-                <p id="nome-terceiro-ajuda" class="ajuda">Campo obrigatório.</p>
-                <p id="nome-terceiro-erro" class="erro-campo" role="alert" hidden></p>
-              </div>
-
-              <div class="campo">
-                <label for="empresa-terceiro">
-                  Empresa <span class="obrigatorio" aria-hidden="true">*</span>
-                </label>
-                <input
-                  type="text"
-                  id="empresa-terceiro"
-                  name="empresa"
-                  required
-                  autocomplete="organization"
-                  aria-required="true"
-                  aria-describedby="empresa-ajuda empresa-erro"
-                  maxlength="120"
-                >
-                <p id="empresa-ajuda" class="ajuda">Campo obrigatório.</p>
-                <p id="empresa-erro" class="erro-campo" role="alert" hidden></p>
-              </div>
-            </div>
+          <div class="campo">
+            <label for="matricula-opcional">Matrícula (opcional)</label>
+            <input type="text" id="matricula-opcional" name="matricula" maxlength="40" autocomplete="off" spellcheck="false">
           </div>
 
           <div class="acoes" role="group" aria-label="Ações do quiz">
-            <button type="submit" id="btn-comecar" class="btn btn-primario">
-              Começar quiz
-            </button>
+            <button type="submit" id="btn-comecar" class="btn btn-primario">Começar quiz</button>
             <button type="button" id="btn-voz" class="btn btn-secundario" aria-pressed="false">
               Ativar comando por voz
             </button>
@@ -188,15 +122,19 @@
         </p>
       </section>
 
-      <!-- Tela do quiz -->
+      <!-- Quiz -->
       <section id="tela-quiz" class="tela" aria-labelledby="titulo-pergunta" hidden>
+        <p id="cabecalho-fase" class="progresso"></p>
         <p id="progresso-quiz" class="progresso" aria-live="polite"></p>
         <p id="meta-pergunta" class="meta-pergunta"></p>
 
         <h2 id="titulo-pergunta" class="titulo-pergunta" tabindex="-1"></h2>
 
         <div class="acoes-pergunta">
-          <button type="button" id="btn-ouvir" class="btn btn-secundario">
+          <button type="button" id="btn-ouvir" class="btn btn-secundario" aria-label="Ouvir pergunta e alternativas">
+            <svg class="icone-audio" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path fill="currentColor" d="M3 10v4h4l5 5V5L7 10H3zm13.5 2a3.5 3.5 0 0 0-1.75-3.03v6.06A3.5 3.5 0 0 0 16.5 12zM14 4.17v2.06a6 6 0 0 1 0 11.54v2.06A8 8 0 0 0 14 4.17z"/>
+            </svg>
             Ouvir pergunta
           </button>
         </div>
@@ -221,49 +159,46 @@
         </div>
       </section>
 
-      <!-- Tela de resultado -->
+      <!-- Resultado -->
       <section id="tela-resultado" class="tela" aria-labelledby="titulo-resultado" hidden>
         <h2 id="titulo-resultado" class="titulo-secao" tabindex="-1">Resultado</h2>
         <p id="resumo-resultado" class="resumo-resultado"></p>
         <p id="msg-ranking" class="msg-ranking" aria-live="polite"></p>
 
-        <div class="acoes" role="group" aria-label="Ações do resultado">
-          <button type="button" id="btn-roleta" class="btn btn-primario">
-            Girar roleta de brindes
-          </button>
-          <button type="button" id="btn-jogar-novamente" class="btn btn-secundario">
-            Jogar novamente
-          </button>
-        </div>
-
-        <div id="area-roleta" class="area-roleta" hidden>
-          <h3 id="titulo-roleta" class="titulo-roleta">Roleta de brindes</h3>
-          <div class="roleta-wrap" aria-hidden="true">
-            <div class="roleta-ponteiro"></div>
-            <canvas id="canvas-roleta" width="320" height="320" role="img" aria-labelledby="titulo-roleta resultado-roleta"></canvas>
-          </div>
-          <p id="resultado-roleta" class="resultado-roleta" aria-live="assertive" aria-atomic="true"></p>
-        </div>
-
         <section class="ranking-bloco" aria-labelledby="titulo-ranking">
-          <h3 id="titulo-ranking" class="titulo-ranking">Top 10</h3>
-          <div id="lista-ranking" class="lista-ranking" role="list"></div>
+          <h3 id="titulo-ranking" class="titulo-ranking">Ranking da fase</h3>
+          <div class="tabela-wrap">
+            <table class="tabela-ranking-publico" id="tabela-ranking">
+              <caption class="sr-only">Ranking da fase atual</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Posição</th>
+                  <th scope="col">Participante</th>
+                  <th scope="col">Pontuação</th>
+                  <th scope="col">Acertos</th>
+                  <th scope="col">Tempo</th>
+                </tr>
+              </thead>
+              <tbody id="corpo-ranking"></tbody>
+            </table>
+          </div>
+          <div id="lista-ranking" class="lista-ranking" role="list" hidden></div>
         </section>
+
+        <div class="acoes" role="group" aria-label="Ações do resultado">
+          <button type="button" id="btn-jogar-novamente" class="btn btn-secundario">Voltar ao início</button>
+        </div>
       </section>
     </main>
 
-    <div
-      id="avisos"
-      class="avisos"
-      role="status"
-      aria-live="polite"
-      aria-atomic="true"
-    ></div>
+    <div id="avisos" class="avisos" role="status" aria-live="polite" aria-atomic="true"></div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js"></script>
   <script src="supabase-client.js"></script>
+  <script src="quiz-data.js"></script>
+  <script src="quiz-status.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
