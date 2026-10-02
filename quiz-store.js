@@ -218,16 +218,17 @@
           ultimaSync: ultimaSync()
         };
       }
-      var remotos = (res.data || []).map(normalizar).filter(function (p) {
+      var remotos = (res.data || []).map(normalizar);
+      salvarCache(mesclarPorId(lerCache().map(normalizar), remotos));
+      marcarSync();
+      var filtrados = remotos.filter(function (p) {
         if (!filtros.incluirExcluidas && (p.excluida || p.status === "excluida")) return false;
         return true;
       });
-      salvarCache(mesclarPorId(lerCache().map(normalizar), remotos));
-      marcarSync();
       return {
         ok: true,
         oficial: true,
-        dados: remotos,
+        dados: filtrados,
         ultimaSync: ultimaSync()
       };
     }).catch(function (err) {
@@ -322,16 +323,15 @@
   }
 
   function rankingFase(faseId, apenasConcluidas) {
-    var status = apenasConcluidas === false ? null : "concluida";
-    return buscarRemoto({ faseId: faseId, status: status || undefined }).then(function (res) {
+    return buscarRemoto({ faseId: faseId, incluirExcluidas: true }).then(function (res) {
       var lista = (res.dados || []).filter(function (p) {
         if (p.fase_id !== faseId) return false;
-        if (status) return p.status === "concluida";
+        if (p.excluida || p.status === "excluida") return false;
+        if (apenasConcluidas !== false) return p.status === "concluida";
         return true;
       });
       var ranking = ordenarRanking(lista);
       if (!res.oficial) {
-        // cache offline — não marcar como oficial
         ranking = ranking.map(function (p) {
           return Object.assign({}, p, { _cache: true });
         });
@@ -452,54 +452,198 @@
   }
 
   function excluirParticipacao(id, motivo, adminId) {
-    return atualizarRemoto(id, {
+    var cliente = db();
+    if (!navigator.onLine) {
+      return Promise.resolve({ ok: false, codigo: "conexao", oficial: false });
+    }
+    if (!cliente) {
+      return Promise.resolve({ ok: false, codigo: "config", oficial: false });
+    }
+    if (!motivo || String(motivo).trim().length < 2) {
+      return Promise.resolve({ ok: false, codigo: "motivo_invalido", oficial: false });
+    }
+
+    return cliente
+      .rpc("excluir_participacao_admin", {
+        p_id: id,
+        p_motivo: String(motivo).trim(),
+        p_admin_id: adminId || "admin"
+      })
+      .then(function (res) {
+        if (res.error) {
+          var msg = (res.error.message || "").toLowerCase();
+          if (/permission|rls|not allowed|jwt/i.test(msg)) {
+            return { ok: false, codigo: "permissao", oficial: false };
+          }
+          if (/function|does not exist|schema cache|pgrst202/i.test(msg)) {
+            // Fallback controlado: update remoto direto (ainda exige confirmação do banco)
+            return excluirPorUpdateDireto(id, motivo, adminId);
+          }
+          return { ok: false, codigo: "conexao", oficial: false, detalheTecnico: res.error.message };
+        }
+        var body = res.data || {};
+        if (body.ok === false) {
+          return { ok: false, codigo: body.codigo || "erro", oficial: false };
+        }
+        return buscarRemoto({ incluirExcluidas: true }).then(function (remoto) {
+          marcarSync();
+          notificar("participacao_excluida", { id: id });
+          return {
+            ok: true,
+            oficial: true,
+            codigo: "ok",
+            faseId: body.fase_id || null,
+            remotoOk: !!remoto.ok
+          };
+        });
+      })
+      .catch(function () {
+        return { ok: false, codigo: "conexao", oficial: false };
+      });
+  }
+
+  function excluirPorUpdateDireto(id, motivo, adminId) {
+    var cliente = db();
+    var patch = {
       status: "excluida",
       excluida: true,
       excluida_em: agoraIso(),
-      excluida_por: adminId || "admin-local",
-      motivo_exclusao: motivo || "Não informado",
-      posicao_ranking: null
-    }).then(function (res) {
-      var faseId = res.registro && res.registro.fase_id;
-      if (faseId) return recalcularRemoto(faseId).then(function () { return res; });
-      return res;
-    });
+      excluida_por: adminId || "admin",
+      motivo_exclusao: String(motivo).trim(),
+      posicao_ranking: null,
+      atualizado_em: agoraIso()
+    };
+    return cliente
+      .from(TABELA)
+      .update(patch)
+      .eq("id", id)
+      .select("*")
+      .single()
+      .then(function (res) {
+        if (res.error || !res.data) {
+          var msg = ((res.error && res.error.message) || "").toLowerCase();
+          if (/permission|rls|not allowed/i.test(msg)) {
+            return { ok: false, codigo: "permissao", oficial: false };
+          }
+          if (/column|excluida|does not exist/i.test(msg)) {
+            return { ok: false, codigo: "config", oficial: false };
+          }
+          return { ok: false, codigo: "conexao", oficial: false };
+        }
+        var salvo = normalizar(res.data);
+        upsertLocal(salvo);
+        return recalcularRemoto(salvo.fase_id).then(function (rec) {
+          if (!rec.ok) {
+            console.warn("[Quiz] Recálculo de ranking falhou após exclusão");
+          }
+          return buscarRemoto({ incluirExcluidas: true }).then(function () {
+            marcarSync();
+            notificar("participacao_excluida", { id: id });
+            return { ok: true, oficial: true, codigo: "ok", faseId: salvo.fase_id };
+          });
+        });
+      })
+      .catch(function () {
+        return { ok: false, codigo: "conexao", oficial: false };
+      });
   }
 
-  function restaurarParticipacao(id) {
-    return atualizarRemoto(id, {
-      status: "concluida",
-      excluida: false,
-      excluida_em: null,
-      excluida_por: null,
-      motivo_exclusao: null
-    }).then(function (res) {
-      var faseId = res.registro && res.registro.fase_id;
-      if (faseId) return recalcularRemoto(faseId).then(function () { return res; });
-      return res;
-    });
+  function restaurarParticipacao(id, adminId) {
+    var cliente = db();
+    if (!navigator.onLine || !cliente) {
+      return Promise.resolve({ ok: false, codigo: !navigator.onLine ? "conexao" : "config", oficial: false });
+    }
+    return cliente
+      .rpc("restaurar_participacao_admin", {
+        p_id: id,
+        p_admin_id: adminId || "admin"
+      })
+      .then(function (res) {
+        if (res.error) {
+          var msg = (res.error.message || "").toLowerCase();
+          if (/function|does not exist|schema cache|pgrst202/i.test(msg)) {
+            return cliente
+              .from(TABELA)
+              .update({
+                status: "concluida",
+                excluida: false,
+                excluida_em: null,
+                excluida_por: null,
+                motivo_exclusao: null,
+                atualizado_em: agoraIso()
+              })
+              .eq("id", id)
+              .select("*")
+              .single()
+              .then(function (u) {
+                if (u.error || !u.data) {
+                  return { ok: false, codigo: "conexao", oficial: false };
+                }
+                var salvo = normalizar(u.data);
+                upsertLocal(salvo);
+                return recalcularRemoto(salvo.fase_id).then(function () {
+                  marcarSync();
+                  return { ok: true, oficial: true, codigo: "ok" };
+                });
+              });
+          }
+          if (/permission|rls/i.test(msg)) return { ok: false, codigo: "permissao", oficial: false };
+          return { ok: false, codigo: "conexao", oficial: false };
+        }
+        var body = res.data || {};
+        if (body.ok === false) return { ok: false, codigo: body.codigo || "erro", oficial: false };
+        return buscarRemoto({ incluirExcluidas: true }).then(function () {
+          marcarSync();
+          return { ok: true, oficial: true, codigo: "ok" };
+        });
+      })
+      .catch(function () {
+        return { ok: false, codigo: "conexao", oficial: false };
+      });
   }
 
   function statusNuvem() {
     var cliente = db();
-    if (!cliente) return Promise.resolve({ ok: false, motivo: "Cliente Supabase indisponível." });
+    if (!navigator.onLine) {
+      return Promise.resolve({ ok: false, codigo: "conexao", motivo: "offline" });
+    }
+    if (!cliente) {
+      return Promise.resolve({ ok: false, codigo: "config", motivo: "sem_cliente" });
+    }
     return cliente
       .from(TABELA)
       .select("id")
       .limit(1)
       .then(function (res) {
         if (res.error) {
+          var msg = (res.error.message || "").toLowerCase();
           return {
             ok: false,
-            motivo: res.error.message,
-            precisaSchema: /relation|does not exist|PGRST/i.test(res.error.message || "")
+            codigo: /permission|rls/i.test(msg) ? "permissao" : (/relation|does not exist/i.test(msg) ? "config" : "conexao"),
+            motivo: res.error.message
           };
         }
-        return { ok: true };
+        return { ok: true, codigo: "ok" };
       })
-      .catch(function (err) {
-        return { ok: false, motivo: (err && err.message) || "falha_rede" };
+      .catch(function () {
+        return { ok: false, codigo: "conexao", motivo: "falha_rede" };
       });
+  }
+
+  function mensagemErroAdmin(codigo) {
+    if (codigo === "permissao") {
+      return "Você não tem permissão para excluir esta participação.";
+    }
+    if (codigo === "config") {
+      return "Não foi possível concluir a exclusão. Entre em contato com o responsável técnico pelo sistema.";
+    }
+    if (codigo === "motivo_invalido") {
+      return "Informe o motivo da exclusão.";
+    }
+    if (codigo === "nao_encontrada" || codigo === "ja_excluida") {
+      return "Não foi possível concluir a exclusão. Atualize a lista e tente novamente.";
+    }
+    return "Não foi possível concluir a exclusão neste momento. Verifique sua conexão e tente novamente.";
   }
 
   global.QuizStore = {
@@ -525,6 +669,7 @@
     ultimaSync: ultimaSync,
     recalcularRemoto: recalcularRemoto,
     excluirParticipacao: excluirParticipacao,
-    restaurarParticipacao: restaurarParticipacao
+    restaurarParticipacao: restaurarParticipacao,
+    mensagemErroAdmin: mensagemErroAdmin
   };
 })(window);
