@@ -416,8 +416,9 @@
     var htmlConc = "";
     fases.forEach(function (id, i) {
       var grupo = todas.filter(function (p) {
+        if (p.excluida || p.status === "excluida") return false;
         if (p.faseId !== id) return false;
-        if (f.data && p.dataEvento !== f.data) return false;
+        if (f.data && p.dataEvento && String(p.dataEvento) !== String(f.data)) return false;
         if (f.publico !== "todos" && p.tipoPublico !== f.publico) return false;
         return true;
       });
@@ -1221,8 +1222,9 @@
     ["fase-1", "fase-2", "fase-3"].forEach(function (id, i) {
       var g = detalhe.filter(function (p) { return p.faseId === id; });
       var todas = carregarParticipacoes().filter(function (p) {
+        if (p.excluida || p.status === "excluida") return false;
         if (p.faseId !== id) return false;
-        if (f.data && p.dataEvento !== f.data) return false;
+        if (f.data && p.dataEvento && String(p.dataEvento) !== String(f.data)) return false;
         if (f.publico !== "todos" && p.tipoPublico !== f.publico) return false;
         return true;
       });
