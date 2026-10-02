@@ -168,15 +168,20 @@
         if (callback) callback(false, st.codigo);
         return;
       }
-      Store.buscarRemoto({ incluirExcluidas: true }).then(function (res) {
-        if (res.ok) {
-          setStatusSync("Dados sincronizados", "ok");
-          atualizarDisponibilidadeAcoes(true);
-        } else {
-          setStatusSync("Sem conexão com os dados", "erro");
-          atualizarDisponibilidadeAcoes(false);
-        }
-        if (callback) callback(!!res.ok);
+      var publicar = Store.publicarPendentes
+        ? Store.publicarPendentes()
+        : Promise.resolve({ ok: true });
+      publicar.then(function () {
+        Store.buscarRemoto({ incluirExcluidas: true }).then(function (res) {
+          if (res.ok) {
+            setStatusSync("Dados sincronizados", "ok");
+            atualizarDisponibilidadeAcoes(true);
+          } else {
+            setStatusSync("Sem conexão com os dados", "erro");
+            atualizarDisponibilidadeAcoes(false);
+          }
+          if (callback) callback(!!res.ok);
+        });
       });
     });
   }
@@ -263,7 +268,10 @@
     return t === "bayer" ? "Bayer" : "Parceiro";
   }
 
-  function labelStatus(s) {
+  function labelStatus(s, p) {
+    if ((p && (p.excluida || p.status === "excluida")) || s === "excluida") {
+      return "Excluída";
+    }
     var map = {
       concluida: "Concluída",
       em_andamento: "Em andamento",
@@ -564,7 +572,7 @@
         "<td>" + labelPublico(p.tipoPublico) + "</td>" +
         "<td>" + escapeHtml(p.empresaParceira || "—") + "</td>" +
         "<td>" + escapeHtml(p.faseNome || p.faseId) + "</td>" +
-        "<td>" + labelStatus(p.status) + "</td>" +
+        "<td>" + labelStatus(p.status, p) + "</td>" +
         "<td>" + (p.pontuacao || 0) + "</td>" +
         "<td>" + (p.quantidadeAcertos || 0) + " de " + (p.quantidadePerguntas || 5) + "</td>" +
         "<td>" + formatarTempo(p.tempoTotalSegundos) + "</td>" +
@@ -911,7 +919,7 @@
       document.getElementById("resumo-excluir").textContent =
         pe.participanteNome + " · " + labelPublico(pe.tipoPublico) + " · " +
         (pe.faseNome || pe.faseId) + " · " + pe.pontuacao + " pts · " +
-        pe.quantidadeAcertos + " acertos · " + labelStatus(pe.status);
+        pe.quantidadeAcertos + " acertos · " + labelStatus(pe.status, pe);
       document.getElementById("motivo-exclusao").value = "";
       document.getElementById("motivo-exclusao-detalhe").value = "";
       setErroExcluir(null);

@@ -57,6 +57,14 @@ alter table public.participacoes add column if not exists excluida_em timestampt
 alter table public.participacoes add column if not exists excluida_por text;
 alter table public.participacoes add column if not exists motivo_exclusao text;
 
+-- Garante que status "excluida" é aceito (tabelas antigas não tinham esse valor)
+alter table public.participacoes drop constraint if exists participacoes_status_check;
+alter table public.participacoes add constraint participacoes_status_check
+  check (status in (
+    'em_andamento', 'concluida', 'incompleta', 'expirada',
+    'cancelada', 'aguardando_sync', 'excluida'
+  ));
+
 alter table public.participacoes enable row level security;
 alter table public.config_quiz enable row level security;
 

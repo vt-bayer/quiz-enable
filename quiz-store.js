@@ -451,6 +451,120 @@
     };
   }
 
+  function publicarPendentes() {
+    var cliente = db();
+    if (!cliente || !navigator.onLine) {
+      return Promise.resolve({ ok: false, enviados: 0 });
+    }
+    var locais = lerCache().map(normalizar).filter(function (p) {
+      return p && p.id && p.participante_nome && p.fase_id;
+    });
+    if (!locais.length) return Promise.resolve({ ok: true, enviados: 0 });
+
+    var linhas = locais.map(function (p) {
+      var linha = paraLinhaSupabase(p);
+      // Nao forçar status "excluida" se o banco ainda nao aceitar o valor
+      if (linha.status === "excluida") {
+        linha.excluida = true;
+      }
+      return linha;
+    });
+
+    return cliente
+      .from(TABELA)
+      .upsert(linhas, { onConflict: "id" })
+      .select("id")
+      .then(function (res) {
+        if (res.error) {
+          return { ok: false, enviados: 0, motivo: res.error.message };
+        }
+        marcarSync();
+        return { ok: true, enviados: (res.data || []).length };
+      })
+      .catch(function (err) {
+        return { ok: false, enviados: 0, motivo: (err && err.message) || "falha" };
+      });
+  }
+
+  function aplicarExclusaoUpdate(id, motivo, adminId, comStatusExcluida) {
+    var cliente = db();
+    var patch = {
+      excluida: true,
+      excluida_em: agoraIso(),
+      excluida_por: adminId || "admin",
+      motivo_exclusao: String(motivo).trim(),
+      posicao_ranking: null,
+      atualizado_em: agoraIso()
+    };
+    if (comStatusExcluida) patch.status = "excluida";
+
+    return cliente
+      .from(TABELA)
+      .update(patch)
+      .eq("id", id)
+      .select("*")
+      .maybeSingle()
+      .then(function (res) {
+        if (res.error) {
+          var msg = (res.error.message || "").toLowerCase();
+          var code = res.error.code || "";
+          if (comStatusExcluida && (code === "23514" || /check|participacoes_status/i.test(msg))) {
+            return aplicarExclusaoUpdate(id, motivo, adminId, false);
+          }
+          if (/permission|rls|not allowed/i.test(msg)) {
+            return { ok: false, codigo: "permissao", oficial: false };
+          }
+          return { ok: false, codigo: "conexao", oficial: false, detalheTecnico: res.error.message };
+        }
+        if (!res.data) {
+          return { ok: false, codigo: "nao_encontrada", oficial: false };
+        }
+        var salvo = normalizar(res.data);
+        salvo.excluida = true;
+        if (comStatusExcluida) salvo.status = "excluida";
+        upsertLocal(salvo);
+        return recalcularRemoto(salvo.fase_id).then(function () {
+          marcarSync();
+          notificar("participacao_excluida", { id: id });
+          return { ok: true, oficial: true, codigo: "ok", faseId: salvo.fase_id };
+        });
+      })
+      .catch(function () {
+        return { ok: false, codigo: "conexao", oficial: false };
+      });
+  }
+
+  function garantirParticipacaoRemota(id) {
+    var cliente = db();
+    var local = lerCache().map(normalizar).find(function (p) { return p && p.id === id; });
+    return cliente
+      .from(TABELA)
+      .select("id,status,excluida")
+      .eq("id", id)
+      .maybeSingle()
+      .then(function (res) {
+        if (res.error) {
+          return { ok: false, codigo: "conexao" };
+        }
+        if (res.data) {
+          if (res.data.excluida || res.data.status === "excluida") {
+            return { ok: false, codigo: "ja_excluida" };
+          }
+          return { ok: true, existe: true };
+        }
+        if (!local) {
+          return { ok: false, codigo: "nao_encontrada" };
+        }
+        return salvarRemoto(local).then(function (s) {
+          if (!s.ok) return { ok: false, codigo: "conexao" };
+          return { ok: true, existe: true, criado: true };
+        });
+      })
+      .catch(function () {
+        return { ok: false, codigo: "conexao" };
+      });
+  }
+
   function excluirParticipacao(id, motivo, adminId) {
     var cliente = db();
     if (!navigator.onLine) {
@@ -463,89 +577,40 @@
       return Promise.resolve({ ok: false, codigo: "motivo_invalido", oficial: false });
     }
 
-    return cliente
-      .rpc("excluir_participacao_admin", {
-        p_id: id,
-        p_motivo: String(motivo).trim(),
-        p_admin_id: adminId || "admin"
-      })
-      .then(function (res) {
-        if (res.error) {
-          var msg = (res.error.message || "").toLowerCase();
-          if (/permission|rls|not allowed|jwt/i.test(msg)) {
-            return { ok: false, codigo: "permissao", oficial: false };
-          }
-          if (/function|does not exist|schema cache|pgrst202/i.test(msg)) {
-            // Fallback controlado: update remoto direto (ainda exige confirmação do banco)
-            return excluirPorUpdateDireto(id, motivo, adminId);
-          }
-          return { ok: false, codigo: "conexao", oficial: false, detalheTecnico: res.error.message };
-        }
-        var body = res.data || {};
-        if (body.ok === false) {
-          return { ok: false, codigo: body.codigo || "erro", oficial: false };
-        }
-        return buscarRemoto({ incluirExcluidas: true }).then(function (remoto) {
-          marcarSync();
-          notificar("participacao_excluida", { id: id });
-          return {
-            ok: true,
-            oficial: true,
-            codigo: "ok",
-            faseId: body.fase_id || null,
-            remotoOk: !!remoto.ok
-          };
-        });
-      })
-      .catch(function () {
-        return { ok: false, codigo: "conexao", oficial: false };
+    return garantirParticipacaoRemota(id).then(function (g) {
+      if (!g.ok) {
+        return { ok: false, codigo: g.codigo || "nao_encontrada", oficial: false };
+      }
+      // Update direto (confiável). RPC fica como reforço opcional após migração SQL.
+      return aplicarExclusaoUpdate(id, motivo, adminId, true).then(function (res) {
+        if (res.ok) return res;
+        return cliente
+          .rpc("excluir_participacao_admin", {
+            p_id: id,
+            p_motivo: String(motivo).trim(),
+            p_admin_id: adminId || "admin"
+          })
+          .then(function (rpcRes) {
+            if (rpcRes.error) {
+              return res; // mantém erro do update
+            }
+            var body = rpcRes.data || {};
+            if (body.ok === false) {
+              return { ok: false, codigo: body.codigo || "erro", oficial: false };
+            }
+            return buscarRemoto({ incluirExcluidas: true }).then(function () {
+              marcarSync();
+              notificar("participacao_excluida", { id: id });
+              return { ok: true, oficial: true, codigo: "ok", faseId: body.fase_id || null };
+            });
+          })
+          .catch(function () { return res; });
       });
+    });
   }
 
   function excluirPorUpdateDireto(id, motivo, adminId) {
-    var cliente = db();
-    var patch = {
-      status: "excluida",
-      excluida: true,
-      excluida_em: agoraIso(),
-      excluida_por: adminId || "admin",
-      motivo_exclusao: String(motivo).trim(),
-      posicao_ranking: null,
-      atualizado_em: agoraIso()
-    };
-    return cliente
-      .from(TABELA)
-      .update(patch)
-      .eq("id", id)
-      .select("*")
-      .single()
-      .then(function (res) {
-        if (res.error || !res.data) {
-          var msg = ((res.error && res.error.message) || "").toLowerCase();
-          if (/permission|rls|not allowed/i.test(msg)) {
-            return { ok: false, codigo: "permissao", oficial: false };
-          }
-          if (/column|excluida|does not exist/i.test(msg)) {
-            return { ok: false, codigo: "config", oficial: false };
-          }
-          return { ok: false, codigo: "conexao", oficial: false };
-        }
-        var salvo = normalizar(res.data);
-        upsertLocal(salvo);
-        return recalcularRemoto(salvo.fase_id).then(function (rec) {
-          if (!rec.ok) {
-            console.warn("[Quiz] Recálculo de ranking falhou após exclusão");
-          }
-          return buscarRemoto({ incluirExcluidas: true }).then(function () {
-            marcarSync();
-            notificar("participacao_excluida", { id: id });
-            return { ok: true, oficial: true, codigo: "ok", faseId: salvo.fase_id };
-          });
-        });
-      })
-      .catch(function () {
-        return { ok: false, codigo: "conexao", oficial: false };
-      });
+    return aplicarExclusaoUpdate(id, motivo, adminId, true);
   }
 
   function restaurarParticipacao(id, adminId) {
@@ -670,6 +735,7 @@
     recalcularRemoto: recalcularRemoto,
     excluirParticipacao: excluirParticipacao,
     restaurarParticipacao: restaurarParticipacao,
-    mensagemErroAdmin: mensagemErroAdmin
+    mensagemErroAdmin: mensagemErroAdmin,
+    publicarPendentes: publicarPendentes
   };
 })(window);
