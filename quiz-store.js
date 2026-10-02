@@ -503,7 +503,6 @@
       .update(patch)
       .eq("id", id)
       .select("*")
-      .maybeSingle()
       .then(function (res) {
         if (res.error) {
           var msg = (res.error.message || "").toLowerCase();
@@ -516,12 +515,16 @@
           }
           return { ok: false, codigo: "conexao", oficial: false, detalheTecnico: res.error.message };
         }
-        if (!res.data) {
+        var row = Array.isArray(res.data) ? res.data[0] : res.data;
+        if (!row) {
           return { ok: false, codigo: "nao_encontrada", oficial: false };
         }
-        var salvo = normalizar(res.data);
+        var salvo = normalizar(row);
         salvo.excluida = true;
         if (comStatusExcluida) salvo.status = "excluida";
+        else if (salvo.status === "concluida") {
+          // banco antigo: marca só a flag, UI trata como excluída
+        }
         upsertLocal(salvo);
         return recalcularRemoto(salvo.fase_id).then(function () {
           marcarSync();
@@ -581,31 +584,7 @@
       if (!g.ok) {
         return { ok: false, codigo: g.codigo || "nao_encontrada", oficial: false };
       }
-      // Update direto (confiável). RPC fica como reforço opcional após migração SQL.
-      return aplicarExclusaoUpdate(id, motivo, adminId, true).then(function (res) {
-        if (res.ok) return res;
-        return cliente
-          .rpc("excluir_participacao_admin", {
-            p_id: id,
-            p_motivo: String(motivo).trim(),
-            p_admin_id: adminId || "admin"
-          })
-          .then(function (rpcRes) {
-            if (rpcRes.error) {
-              return res; // mantém erro do update
-            }
-            var body = rpcRes.data || {};
-            if (body.ok === false) {
-              return { ok: false, codigo: body.codigo || "erro", oficial: false };
-            }
-            return buscarRemoto({ incluirExcluidas: true }).then(function () {
-              marcarSync();
-              notificar("participacao_excluida", { id: id });
-              return { ok: true, oficial: true, codigo: "ok", faseId: body.fase_id || null };
-            });
-          })
-          .catch(function () { return res; });
-      });
+      return aplicarExclusaoUpdate(id, motivo, adminId, true);
     });
   }
 

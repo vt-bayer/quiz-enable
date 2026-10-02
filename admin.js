@@ -153,7 +153,8 @@
     }
   }
 
-  function sincronizarNuvem(callback) {
+  function sincronizarNuvem(callback, opcoes) {
+    opcoes = opcoes || {};
     if (!Store) {
       setStatusSync("Sem conexão com os dados", "erro");
       atualizarDisponibilidadeAcoes(false);
@@ -168,7 +169,8 @@
         if (callback) callback(false, st.codigo);
         return;
       }
-      var publicar = Store.publicarPendentes
+      var devePublicar = opcoes.publicar !== false;
+      var publicar = (devePublicar && Store.publicarPendentes)
         ? Store.publicarPendentes()
         : Promise.resolve({ ok: true });
       publicar.then(function () {
@@ -688,7 +690,7 @@
         alert(ok
           ? "Dados atualizados com sucesso."
           : "Não foi possível atualizar os dados neste momento. Verifique sua conexão e tente novamente.");
-      });
+      }, { publicar: true });
     });
   }
 
@@ -1009,8 +1011,11 @@
           renderGraficos();
           renderResultados();
           renderRankingAdmin();
-        });
+        }, { publicar: false });
         alert("Participação excluída com sucesso. O ranking foi atualizado.");
+      }).catch(function () {
+        setExcluindoUI(false);
+        setErroExcluir("Não foi possível concluir a exclusão neste momento. Verifique sua conexão e tente novamente.");
       });
     });
   }
@@ -1257,21 +1262,28 @@
   if (dataInput && QuizData.dataEvento()) dataInput.value = QuizData.dataEvento();
 
   mostrarPainel(autenticado());
+  var syncDebounceTimer = null;
+  function agendarRefreshAdmin() {
+    if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
+    syncDebounceTimer = setTimeout(function () {
+      sincronizarNuvem(function () {
+        renderCards();
+        renderGraficos();
+        renderResultados();
+        renderRankingAdmin();
+      }, { publicar: false });
+    }, 800);
+  }
   if (Store) {
     Store.onEvento(function (evento) {
       if (!autenticado()) return;
       if (evento === "realtime" || evento === "participacao_excluida") {
-        sincronizarNuvem(function () {
-          renderCards();
-          renderGraficos();
-          renderResultados();
-          renderRankingAdmin();
-        });
+        agendarRefreshAdmin();
       }
     });
   }
   window.addEventListener("online", function () {
-    if (autenticado()) sincronizarNuvem(function () { renderResultados(); });
+    if (autenticado()) sincronizarNuvem(function () { renderResultados(); }, { publicar: true });
   });
   window.addEventListener("offline", function () {
     if (autenticado()) {
