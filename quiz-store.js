@@ -1,12 +1,17 @@
 /**
- * Persistência compartilhada (Supabase) + cache local.
- * Garante ranking/resultados entre celulares e computadores.
+ * Persistência oficial no Supabase + Realtime.
+ * Cache local apenas para UI offline — nunca fonte oficial do ranking.
  */
 (function (global) {
   "use strict";
 
-  var STORAGE_CACHE = "quizEnableParticipacoes";
+  var STORAGE_CACHE = "quizEnableParticipacoesCache";
+  var STORAGE_PRIV = "quizEnablePrivacidadeNome";
+  var STORAGE_LAST_SYNC = "quizEnableUltimaSync";
   var TABELA = "participacoes";
+  var TABELA_CONFIG = "config_quiz";
+  var canal = null;
+  var ouvintes = [];
 
   function db() {
     return typeof global.obterClienteSupabase === "function"
@@ -23,6 +28,18 @@
       var v = c === "x" ? r : (r & 0x3) | 0x8;
       return v.toString(16);
     });
+  }
+
+  function agoraIso() {
+    return new Date().toISOString();
+  }
+
+  function marcarSync() {
+    localStorage.setItem(STORAGE_LAST_SYNC, agoraIso());
+  }
+
+  function ultimaSync() {
+    return localStorage.getItem(STORAGE_LAST_SYNC) || null;
   }
 
   function lerCache() {
@@ -70,7 +87,13 @@
       quantidade_acertos: Number(p.quantidade_acertos != null ? p.quantidade_acertos : p.quantidadeAcertos) || 0,
       pontuacao: Number(p.pontuacao != null ? p.pontuacao : p.pontos) || 0,
       tempo_total_segundos: Number(p.tempo_total_segundos != null ? p.tempo_total_segundos : p.tempoTotalSegundos) || 0,
-      posicao_ranking: p.posicao_ranking != null ? p.posicao_ranking : p.posicaoRanking
+      posicao_ranking: p.posicao_ranking != null ? p.posicao_ranking : (p.posicaoRanking != null ? p.posicaoRanking : null),
+      sincronizado: p.sincronizado !== false,
+      pendente_sync: !!p.pendente_sync,
+      excluida: !!(p.excluida || p.status === "excluida"),
+      excluida_em: p.excluida_em || p.excluidaEm || null,
+      excluida_por: p.excluida_por || p.excluidaPorAdministradorId || null,
+      motivo_exclusao: p.motivo_exclusao || p.motivoExclusao || null
     };
   }
 
@@ -86,14 +109,20 @@
       data_evento: n.data_evento || null,
       horario_inicio_fase: n.horario_inicio_fase || null,
       horario_fim_fase: n.horario_fim_fase || null,
-      iniciado_em: n.iniciado_em || new Date().toISOString(),
+      iniciado_em: n.iniciado_em || agoraIso(),
       finalizado_em: n.finalizado_em,
       status: n.status,
       quantidade_perguntas: n.quantidade_perguntas,
       quantidade_acertos: n.quantidade_acertos,
       pontuacao: n.pontuacao,
       tempo_total_segundos: n.tempo_total_segundos,
-      posicao_ranking: n.posicao_ranking != null ? n.posicao_ranking : null
+      posicao_ranking: n.posicao_ranking,
+      sincronizado: true,
+      excluida: !!n.excluida,
+      excluida_em: n.excluida_em || null,
+      excluida_por: n.excluida_por || null,
+      motivo_exclusao: n.motivo_exclusao || null,
+      atualizado_em: agoraIso()
     };
   }
 
@@ -103,7 +132,41 @@
       if (b.quantidade_acertos !== a.quantidade_acertos) return b.quantidade_acertos - a.quantidade_acertos;
       if (a.tempo_total_segundos !== b.tempo_total_segundos) return a.tempo_total_segundos - b.tempo_total_segundos;
       return String(a.finalizado_em || "").localeCompare(String(b.finalizado_em || ""));
+    }).map(function (p, i) {
+      return Object.assign({}, p, { posicao_ranking: p.posicao_ranking || (i + 1) });
     });
+  }
+
+  function privacidadeAtual() {
+    return localStorage.getItem(STORAGE_PRIV) || "primeiro_inicial";
+  }
+
+  function salvarPrivacidadeLocal(modo) {
+    localStorage.setItem(STORAGE_PRIV, modo || "primeiro_inicial");
+  }
+
+  function formatarNomePublico(nomeCompleto, modo) {
+    var nome = String(nomeCompleto || "").trim().replace(/\s+/g, " ");
+    if (!nome) return "Participante";
+    modo = modo || privacidadeAtual();
+    var partes = nome.split(" ");
+    var primeiro = partes[0];
+    var ultimo = partes.length > 1 ? partes[partes.length - 1] : "";
+
+    if (modo === "completo") return nome;
+
+    if (modo === "mascarado") {
+      function mask(s) {
+        if (!s) return "";
+        if (s.length === 1) return s;
+        return s.charAt(0) + Array(Math.max(1, s.length - 1) + 1).join("*");
+      }
+      return ultimo ? mask(primeiro) + " " + mask(ultimo) : mask(primeiro);
+    }
+
+    // padrão: primeiro + inicial
+    if (ultimo) return primeiro + " " + ultimo.charAt(0).toUpperCase() + ".";
+    return primeiro;
   }
 
   function listarLocal(filtros) {
@@ -113,8 +176,15 @@
       if (filtros.faseId && p.fase_id !== filtros.faseId) return false;
       if (filtros.status && p.status !== filtros.status) return false;
       if (filtros.tipoPublico && p.tipo_publico !== filtros.tipoPublico) return false;
-      if (filtros.dataEvento && p.data_evento !== filtros.dataEvento) return false;
+      if (filtros.dataEvento && String(p.data_evento) !== String(filtros.dataEvento)) return false;
+      if (!filtros.incluirExcluidas && (p.excluida || p.status === "excluida")) return false;
       return true;
+    });
+  }
+
+  function notificar(evento, payload) {
+    ouvintes.slice().forEach(function (fn) {
+      try { fn(evento, payload); } catch (e) { /* ignore */ }
     });
   }
 
@@ -122,10 +192,16 @@
     filtros = filtros || {};
     var cliente = db();
     if (!cliente) {
-      return Promise.resolve({ ok: false, motivo: "sem_cliente", dados: listarLocal(filtros) });
+      return Promise.resolve({
+        ok: false,
+        oficial: false,
+        motivo: "sem_cliente",
+        dados: listarLocal(filtros),
+        ultimaSync: ultimaSync()
+      });
     }
 
-    var query = cliente.from(TABELA).select("*").order("pontuacao", { ascending: false }).limit(1000);
+    var query = cliente.from(TABELA).select("*").order("pontuacao", { ascending: false }).limit(2000);
     if (filtros.faseId) query = query.eq("fase_id", filtros.faseId);
     if (filtros.status) query = query.eq("status", filtros.status);
     if (filtros.tipoPublico) query = query.eq("tipo_publico", filtros.tipoPublico);
@@ -135,24 +211,32 @@
       if (res.error) {
         return {
           ok: false,
+          oficial: false,
           motivo: res.error.message || "erro_supabase",
           codigo: res.error.code,
-          dados: listarLocal(filtros)
+          dados: listarLocal(filtros),
+          ultimaSync: ultimaSync()
         };
       }
-      var remotos = (res.data || []).map(normalizar);
-      var mesclado = mesclarPorId(listarLocal(filtros), remotos);
-      if (!filtros.faseId && !filtros.status) {
-        salvarCache(mesclarPorId(lerCache().map(normalizar), remotos));
-      } else {
-        salvarCache(mesclarPorId(lerCache().map(normalizar), remotos));
-      }
-      return { ok: true, dados: mesclado, remoto: true };
+      var remotos = (res.data || []).map(normalizar).filter(function (p) {
+        if (!filtros.incluirExcluidas && (p.excluida || p.status === "excluida")) return false;
+        return true;
+      });
+      salvarCache(mesclarPorId(lerCache().map(normalizar), remotos));
+      marcarSync();
+      return {
+        ok: true,
+        oficial: true,
+        dados: remotos,
+        ultimaSync: ultimaSync()
+      };
     }).catch(function (err) {
       return {
         ok: false,
+        oficial: false,
         motivo: (err && err.message) || "falha_rede",
-        dados: listarLocal(filtros)
+        dados: listarLocal(filtros),
+        ultimaSync: ultimaSync()
       };
     });
   }
@@ -173,12 +257,29 @@
     return n;
   }
 
+  function recalcularRemoto(faseId) {
+    var cliente = db();
+    if (!cliente || !faseId) return Promise.resolve({ ok: false });
+    return cliente.rpc("recalcular_ranking_fase", { p_fase_id: faseId }).then(function (res) {
+      if (res.error) return { ok: false, motivo: res.error.message };
+      return { ok: true };
+    }).catch(function () {
+      return { ok: false };
+    });
+  }
+
   function salvarRemoto(registro) {
     var linha = paraLinhaSupabase(registro);
-    upsertLocal(linha);
+    upsertLocal(Object.assign({}, linha, { pendente_sync: true, sincronizado: false }));
     var cliente = db();
     if (!cliente) {
-      return Promise.resolve({ ok: false, motivo: "sem_cliente", local: true, registro: linha });
+      return Promise.resolve({
+        ok: false,
+        oficial: false,
+        motivo: "sem_cliente",
+        aguardandoSync: true,
+        registro: Object.assign({}, linha, { status: linha.status === "concluida" ? "aguardando_sync" : linha.status, pendente_sync: true })
+      });
     }
     return cliente
       .from(TABELA)
@@ -187,21 +288,37 @@
       .single()
       .then(function (res) {
         if (res.error) {
-          return { ok: false, motivo: res.error.message || "erro_upsert", codigo: res.error.code, local: true, registro: linha };
+          return {
+            ok: false,
+            oficial: false,
+            motivo: res.error.message || "erro_upsert",
+            codigo: res.error.code,
+            aguardandoSync: true,
+            registro: Object.assign({}, linha, { pendente_sync: true })
+          };
         }
         var salvo = normalizar(res.data);
-        upsertLocal(salvo);
-        return { ok: true, remoto: true, registro: salvo };
+        upsertLocal(Object.assign({}, salvo, { pendente_sync: false, sincronizado: true }));
+        marcarSync();
+        return recalcularRemoto(salvo.fase_id).then(function () {
+          notificar("participacao_salva", salvo);
+          return { ok: true, oficial: true, remoto: true, registro: salvo };
+        });
       })
       .catch(function (err) {
-        return { ok: false, motivo: (err && err.message) || "falha_rede", local: true, registro: linha };
+        return {
+          ok: false,
+          oficial: false,
+          motivo: (err && err.message) || "falha_rede",
+          aguardandoSync: true,
+          registro: Object.assign({}, linha, { pendente_sync: true })
+        };
       });
   }
 
   function atualizarRemoto(id, patch) {
     var atual = lerCache().map(normalizar).find(function (p) { return p.id === id; }) || { id: id };
-    var mesclado = Object.assign({}, atual, patch, { id: id });
-    return salvarRemoto(mesclado);
+    return salvarRemoto(Object.assign({}, atual, patch, { id: id }));
   }
 
   function rankingFase(faseId, apenasConcluidas) {
@@ -209,13 +326,22 @@
     return buscarRemoto({ faseId: faseId, status: status || undefined }).then(function (res) {
       var lista = (res.dados || []).filter(function (p) {
         if (p.fase_id !== faseId) return false;
-        if (status) return p.status === status;
+        if (status) return p.status === "concluida";
         return true;
       });
+      var ranking = ordenarRanking(lista);
+      if (!res.oficial) {
+        // cache offline — não marcar como oficial
+        ranking = ranking.map(function (p) {
+          return Object.assign({}, p, { _cache: true });
+        });
+      }
       return {
         ok: res.ok,
+        oficial: !!res.oficial,
         motivo: res.motivo,
-        ranking: ordenarRanking(lista)
+        ranking: ranking,
+        ultimaSync: res.ultimaSync || ultimaSync()
       };
     });
   }
@@ -231,7 +357,126 @@
           p.tipo_publico === tipo
         );
       });
-      return { ok: res.ok, existe: existe, motivo: res.motivo };
+      return { ok: res.ok, oficial: res.oficial, existe: existe, motivo: res.motivo };
+    });
+  }
+
+  function carregarPrivacidade() {
+    var cliente = db();
+    var local = privacidadeAtual();
+    if (!cliente) return Promise.resolve(local);
+    return cliente
+      .from(TABELA_CONFIG)
+      .select("privacidade_nome")
+      .eq("id", "padrao")
+      .maybeSingle()
+      .then(function (res) {
+        if (res.error || !res.data) return local;
+        salvarPrivacidadeLocal(res.data.privacidade_nome);
+        return res.data.privacidade_nome;
+      })
+      .catch(function () { return local; });
+  }
+
+  function salvarPrivacidade(modo) {
+    salvarPrivacidadeLocal(modo);
+    var cliente = db();
+    if (!cliente) return Promise.resolve({ ok: false, local: true });
+    return cliente
+      .from(TABELA_CONFIG)
+      .upsert({ id: "padrao", privacidade_nome: modo, atualizado_em: agoraIso() })
+      .then(function (res) {
+        if (res.error) return { ok: false, motivo: res.error.message };
+        notificar("config", { privacidade_nome: modo });
+        return { ok: true };
+      })
+      .catch(function (err) {
+        return { ok: false, motivo: (err && err.message) || "falha" };
+      });
+  }
+
+  function assinarRealtime(opcoes) {
+    opcoes = opcoes || {};
+    var cliente = db();
+    if (!cliente || !cliente.channel) {
+      return { ok: false, unsubscribe: function () {} };
+    }
+    if (canal) {
+      try { cliente.removeChannel(canal); } catch (e) { /* ignore */ }
+      canal = null;
+    }
+
+    var filtro = opcoes.faseId ? "fase_id=eq." + opcoes.faseId : undefined;
+    canal = cliente
+      .channel("ranking-" + (opcoes.faseId || "todas") + "-" + Date.now())
+      .on(
+        "postgres_changes",
+        Object.assign(
+          { event: "*", schema: "public", table: TABELA },
+          filtro ? { filter: filtro } : {}
+        ),
+        function (payload) {
+          var row = normalizar(payload.new || payload.old);
+          if (row) {
+            if (payload.eventType === "DELETE") {
+              var lista = lerCache().map(normalizar).filter(function (p) { return p.id !== row.id; });
+              salvarCache(lista);
+            } else {
+              upsertLocal(row);
+            }
+          }
+          marcarSync();
+          notificar("realtime", { tipo: payload.eventType, row: row, raw: payload });
+        }
+      )
+      .subscribe(function (status) {
+        notificar("conexao", { status: status });
+      });
+
+    return {
+      ok: true,
+      unsubscribe: function () {
+        if (canal && cliente) {
+          try { cliente.removeChannel(canal); } catch (e) { /* ignore */ }
+          canal = null;
+        }
+      }
+    };
+  }
+
+  function onEvento(fn) {
+    if (typeof fn === "function") ouvintes.push(fn);
+    return function () {
+      ouvintes = ouvintes.filter(function (f) { return f !== fn; });
+    };
+  }
+
+  function excluirParticipacao(id, motivo, adminId) {
+    return atualizarRemoto(id, {
+      status: "excluida",
+      excluida: true,
+      excluida_em: agoraIso(),
+      excluida_por: adminId || "admin-local",
+      motivo_exclusao: motivo || "Não informado",
+      posicao_ranking: null
+    }).then(function (res) {
+      var faseId = res.registro && res.registro.fase_id;
+      if (faseId) return recalcularRemoto(faseId).then(function () { return res; });
+      return res;
+    });
+  }
+
+  function restaurarParticipacao(id) {
+    return atualizarRemoto(id, {
+      status: "concluida",
+      excluida: false,
+      excluida_em: null,
+      excluida_por: null,
+      motivo_exclusao: null
+    }).then(function (res) {
+      var faseId = res.registro && res.registro.fase_id;
+      if (faseId) return recalcularRemoto(faseId).then(function () { return res; });
+      return res;
     });
   }
 
@@ -270,6 +515,16 @@
     jaParticipou: jaParticipou,
     statusNuvem: statusNuvem,
     upsertLocal: upsertLocal,
-    lerCache: function () { return lerCache().map(normalizar); }
+    lerCache: function () { return lerCache().map(normalizar); },
+    formatarNomePublico: formatarNomePublico,
+    privacidadeAtual: privacidadeAtual,
+    carregarPrivacidade: carregarPrivacidade,
+    salvarPrivacidade: salvarPrivacidade,
+    assinarRealtime: assinarRealtime,
+    onEvento: onEvento,
+    ultimaSync: ultimaSync,
+    recalcularRemoto: recalcularRemoto,
+    excluirParticipacao: excluirParticipacao,
+    restaurarParticipacao: restaurarParticipacao
   };
 })(window);
