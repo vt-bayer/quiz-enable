@@ -135,7 +135,7 @@
       if (!res.ok) {
         els.conexao.hidden = false;
         els.conexao.textContent =
-          "Sem conexão com o banco. Exibindo a última atualização disponível. Execute ATIVAR-NUVEM.sql no Supabase se ainda não ativou.";
+          "Sem conexão com os dados. Exibindo a última atualização disponível.";
       }
       return res;
     });
