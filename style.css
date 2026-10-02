@@ -814,13 +814,11 @@ h1 {
   }
 }
 
-.logo-enable {
-  display: block;
-  width: 180px;
-  max-width: 70vw;
-  height: auto;
-  object-fit: contain;
-  margin: 0 auto 1.5rem;
+.acoes a.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
 }
 
 .acoes-pergunta .btn {
@@ -980,4 +978,75 @@ h1 {
   .card-publico {
     flex: 1 1 0;
   }
+}
+
+.logo-enable {
+  display: block;
+  width: 180px;
+  max-width: 70vw;
+  height: auto;
+  object-fit: contain;
+  margin: 0 auto 1.5rem;
+}
+
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.acoes a.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.icone-audio {
+  flex-shrink: 0;
+}
+
+.card-resultado {
+  background: var(--cartao);
+  border: 0.15rem solid var(--borda);
+  border-radius: var(--raio);
+  padding: 1.25rem 1.35rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 0.35rem 1rem rgba(0, 59, 92, 0.06);
+}
+
+.lista-resultado {
+  margin: 0.75rem 0 0;
+  padding-left: 1.2rem;
+  font-weight: 700;
+  color: var(--texto);
+}
+
+.resultado-meta {
+  margin: 0 0 0.5rem;
+  font-weight: 700;
+  color: var(--azul);
+}
+
+.selo-voce {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: var(--rosa);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 800;
+  vertical-align: middle;
+}
+
+.linha-voce {
+  background: #FFF0F4;
+  box-shadow: inset 0.25rem 0 0 var(--rosa);
+}
+
+.sua-posicao-extra {
+  margin: 0.85rem 0 0;
+  font-weight: 700;
+  color: var(--texto);
 }
