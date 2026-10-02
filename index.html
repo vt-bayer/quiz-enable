@@ -42,6 +42,8 @@
           <div id="lista-ranking-status" class="lista-ranking" role="list"></div>
         </div>
         <p class="link-admin-wrap">
+          <a href="ranking.html" class="link-admin">Ver ranking ao vivo</a>
+          ·
           <a href="admin.html" class="link-admin" aria-label="Abrir área administrativa do Quiz ENABLE">
             Área administrativa
           </a>
@@ -116,6 +118,8 @@
         </form>
 
         <p class="link-admin-wrap">
+          <a href="ranking.html" class="link-admin">Ver ranking ao vivo</a>
+          ·
           <a href="admin.html" class="link-admin" aria-label="Abrir área administrativa do Quiz ENABLE">
             Área administrativa
           </a>
@@ -161,12 +165,22 @@
 
       <!-- Resultado -->
       <section id="tela-resultado" class="tela" aria-labelledby="titulo-resultado" hidden>
-        <h2 id="titulo-resultado" class="titulo-secao" tabindex="-1">Resultado</h2>
-        <p id="resumo-resultado" class="resumo-resultado"></p>
-        <p id="msg-ranking" class="msg-ranking" aria-live="polite"></p>
+        <h2 id="titulo-resultado" class="titulo-secao" tabindex="-1">Quiz concluído!</h2>
+        <article class="card-resultado" aria-labelledby="titulo-resultado">
+          <p id="resultado-fase" class="resultado-meta"></p>
+          <p id="resumo-resultado" class="resumo-resultado"></p>
+          <ul class="lista-resultado" id="lista-resultado">
+            <li id="resultado-pontos"></li>
+            <li id="resultado-acertos"></li>
+            <li id="resultado-tempo"></li>
+            <li id="resultado-posicao"></li>
+          </ul>
+          <p id="msg-ranking" class="msg-ranking" aria-live="polite"></p>
+        </article>
 
         <section class="ranking-bloco" aria-labelledby="titulo-ranking">
           <h3 id="titulo-ranking" class="titulo-ranking">Ranking da fase</h3>
+          <p id="aviso-ranking-live" class="ajuda" hidden>Ranking atualizado</p>
           <div class="tabela-wrap">
             <table class="tabela-ranking-publico" id="tabela-ranking">
               <caption class="sr-only">Ranking da fase atual</caption>
@@ -182,10 +196,12 @@
               <tbody id="corpo-ranking"></tbody>
             </table>
           </div>
+          <p id="sua-posicao-extra" class="sua-posicao-extra" hidden></p>
           <div id="lista-ranking" class="lista-ranking" role="list" hidden></div>
         </section>
 
         <div class="acoes" role="group" aria-label="Ações do resultado">
+          <a href="ranking.html" class="btn btn-primario" id="btn-ver-ranking">Ver ranking ao vivo</a>
           <button type="button" id="btn-jogar-novamente" class="btn btn-secundario">Voltar ao início</button>
         </div>
       </section>
