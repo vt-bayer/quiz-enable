@@ -92,6 +92,9 @@
       pontuacao: Number(p.pontuacao != null ? p.pontuacao : p.pontos) || 0,
       tempoTotalSegundos: Number(p.tempoTotalSegundos != null ? p.tempoTotalSegundos : p.tempo_total_segundos) || 0,
       posicaoRanking: p.posicaoRanking || p.posicao_ranking || null,
+      excluida: !!(p.excluida || p.status === "excluida"),
+      excluidaEm: p.excluidaEm || p.excluida_em || null,
+      motivoExclusao: p.motivoExclusao || p.motivo_exclusao || null,
       _raw: p
     };
   }
@@ -186,12 +189,16 @@
 
   function filtrarParticipacoes(base) {
     var f = filtrosAtivos();
+    var exibirExcluidos = !!(document.getElementById("filtro-exibir-excluidos") &&
+      document.getElementById("filtro-exibir-excluidos").checked);
     var lista = (base || carregarParticipacoes()).slice();
     return lista.filter(function (p) {
       if (f.data && p.dataEvento !== f.data) return false;
       if (f.fase !== "todas" && p.faseId !== f.fase) return false;
       if (f.publico !== "todos" && p.tipoPublico !== f.publico) return false;
-      if (f.status !== "todas" && p.status !== f.status) return false;
+      if (f.status === "excluida") return p.status === "excluida" || p.excluida;
+      if (!exibirExcluidos && (p.status === "excluida" || p.excluida)) return false;
+      if (f.status !== "todas" && f.status !== "excluida" && p.status !== f.status) return false;
       return true;
     });
   }
@@ -534,7 +541,11 @@
         "<td>" + formatarData(p.iniciadoEm) + "</td>" +
         "<td>" + formatarData(p.finalizadoEm) + "</td>" +
         "<td>" + (p.posicaoRanking || "—") + "</td>" +
-        '<td><button type="button" class="btn btn-pequeno" data-corrigir="' + p.id + '">Corrigir público</button></td>' +
+        '<td><button type="button" class="btn btn-pequeno" data-corrigir="' + p.id + '">Corrigir público</button> ' +
+        (p.status === "excluida" || p.excluida
+          ? '<button type="button" class="btn btn-pequeno" data-restaurar="' + p.id + '">Restaurar</button>'
+          : '<button type="button" class="btn btn-pequeno" data-excluir="' + p.id + '">Excluir</button>') +
+        "</td>" +
         "</tr>"
       );
     }).join("") || '<tr><td colspan="12">Nenhum registro.</td></tr>';
@@ -573,12 +584,8 @@
     var txt = st.liberado
       ? "Quiz liberado · " + n + " fase(s) disponível(is)"
       : "Quiz bloqueado";
-    if (st.faseAtiva) {
-      txt += " · Sugestão atual: " + st.faseAtiva.nome +
-        " (" + QuizStatus.formatarHorario(st.faseAtiva.horarioInicio) +
-        "–" + QuizStatus.formatarHorario(st.faseAtiva.horarioFim) + ")";
-    }
-    txt += " · Horários são só identificação; o participante escolhe a fase.";
+    if (st.faseAtiva) txt += " · Destaque: " + st.faseAtiva.nome;
+    txt += " · Horários são só identificação";
     els.statusQuiz.textContent = txt;
   }
 
@@ -648,12 +655,21 @@
   });
 
   ["filtro-data", "filtro-fase", "filtro-publico", "filtro-status", "filtro-contagem"].forEach(function (id) {
-    document.getElementById(id).addEventListener("change", function () {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener("change", function () {
       renderCards();
       renderGraficos();
       renderResultados();
     });
   });
+  var chkExc = document.getElementById("filtro-exibir-excluidos");
+  if (chkExc) {
+    chkExc.addEventListener("change", function () {
+      renderCards();
+      renderGraficos();
+      renderResultados();
+    });
+  }
 
   ["filtro-perg-fase", "filtro-perg-status", "filtro-perg-dif"].forEach(function (id) {
     document.getElementById(id).addEventListener("change", renderPerguntas);
@@ -662,6 +678,29 @@
   document.getElementById("busca-nome").addEventListener("input", renderResultados);
   document.getElementById("ranking-fase").addEventListener("change", renderRankingAdmin);
   document.getElementById("ranking-publico").addEventListener("change", renderRankingAdmin);
+
+  var selPriv = document.getElementById("privacidade-nome");
+  var btnPriv = document.getElementById("btn-salvar-privacidade");
+  if (selPriv && Store) {
+    Store.carregarPrivacidade().then(function (modo) {
+      selPriv.value = modo || "primeiro_inicial";
+    });
+  }
+  if (btnPriv && selPriv && Store) {
+    btnPriv.addEventListener("click", function () {
+      Store.salvarPrivacidade(selPriv.value).then(function (res) {
+        registrarAuditoria({
+          acao: "alterar_privacidade_nome",
+          entidade: "config_quiz",
+          entidadeId: "padrao",
+          novoValor: selPriv.value
+        });
+        alert(res.ok
+          ? "Privacidade salva. O ranking público usará o novo formato de nome."
+          : "Salvo localmente. Para persistir na nuvem, execute ATIVAR-NUVEM.sql e autentique o admin no Supabase.");
+      });
+    });
+  }
 
   els.listaFases.addEventListener("click", function (e) {
     var btn = e.target.closest("button[data-acao]");
@@ -781,19 +820,90 @@
     renderFases();
   });
 
+  var editandoExcluirId = null;
+
   els.tabelaResultados.addEventListener("click", function (e) {
-    var btn = e.target.closest("[data-corrigir]");
-    if (!btn) return;
-    editandoPublicoId = btn.getAttribute("data-corrigir");
-    var p = carregarParticipacoes().find(function (x) { return x.id === editandoPublicoId; });
-    if (!p) return;
-    els.resumoAuditoria.textContent =
-      "Participante: " + (p.participanteNome || p.nomeCompleto) +
-      " · Atual: " + labelPublico(p.tipoPublico);
-    els.novoPublico.value = p.tipoPublico === "bayer" ? "parceiro" : "bayer";
-    els.motivoAuditoria.value = "";
-    els.modalAuditoria.hidden = false;
+    var btnCorrigir = e.target.closest("[data-corrigir]");
+    var btnExcluir = e.target.closest("[data-excluir]");
+    var btnRestaurar = e.target.closest("[data-restaurar]");
+
+    if (btnCorrigir) {
+      editandoPublicoId = btnCorrigir.getAttribute("data-corrigir");
+      var p = carregarParticipacoes().find(function (x) { return x.id === editandoPublicoId; });
+      if (!p) return;
+      els.resumoAuditoria.textContent =
+        "Participante: " + (p.participanteNome || p.nomeCompleto) +
+        " · Atual: " + labelPublico(p.tipoPublico);
+      els.novoPublico.value = p.tipoPublico === "bayer" ? "parceiro" : "bayer";
+      els.motivoAuditoria.value = "";
+      els.modalAuditoria.hidden = false;
+      return;
+    }
+
+    if (btnExcluir) {
+      editandoExcluirId = btnExcluir.getAttribute("data-excluir");
+      var pe = carregarParticipacoes().find(function (x) { return x.id === editandoExcluirId; });
+      if (!pe) return;
+      document.getElementById("resumo-excluir").textContent =
+        pe.participanteNome + " · " + labelPublico(pe.tipoPublico) + " · " +
+        (pe.faseNome || pe.faseId) + " · " + pe.pontuacao + " pts · " +
+        pe.quantidadeAcertos + " acertos · " + labelStatus(pe.status);
+      document.getElementById("motivo-exclusao").value = "";
+      document.getElementById("motivo-exclusao-detalhe").value = "";
+      document.getElementById("modal-excluir").hidden = false;
+      return;
+    }
+
+    if (btnRestaurar && Store) {
+      var idR = btnRestaurar.getAttribute("data-restaurar");
+      if (!confirm("Restaurar esta participação ao ranking?")) return;
+      Store.restaurarParticipacao(idR).then(function () {
+        registrarAuditoria({
+          acao: "restaurar_participacao",
+          entidade: "participacao",
+          entidadeId: idR
+        });
+        sincronizarNuvem(function () { atualizarTudo(); });
+      });
+    }
   });
+
+  var btnCancelEx = document.getElementById("cancelar-excluir");
+  var btnConfEx = document.getElementById("confirmar-excluir");
+  if (btnCancelEx) {
+    btnCancelEx.addEventListener("click", function () {
+      document.getElementById("modal-excluir").hidden = true;
+      editandoExcluirId = null;
+    });
+  }
+  if (btnConfEx) {
+    btnConfEx.addEventListener("click", function () {
+      if (!editandoExcluirId || !Store) return;
+      var motivo = document.getElementById("motivo-exclusao").value;
+      if (motivo === "Outro") {
+        motivo = document.getElementById("motivo-exclusao-detalhe").value.trim() || "Outro";
+      }
+      if (!motivo) {
+        alert("Informe o motivo da exclusão.");
+        return;
+      }
+      Store.excluirParticipacao(editandoExcluirId, motivo, "admin-local").then(function (res) {
+        registrarAuditoria({
+          acao: "excluir_participacao",
+          entidade: "participacao",
+          entidadeId: editandoExcluirId,
+          motivo: motivo,
+          novoValor: "excluida"
+        });
+        document.getElementById("modal-excluir").hidden = true;
+        editandoExcluirId = null;
+        sincronizarNuvem(function () { atualizarTudo(); });
+        alert(res.ok
+          ? "Participação excluída e ranking recalculado."
+          : "Exclusão registrada localmente. Confirme a nuvem com ATIVAR-NUVEM.sql.");
+      });
+    });
+  }
 
   els.cancelarAuditoria.addEventListener("click", function () {
     els.modalAuditoria.hidden = true;
