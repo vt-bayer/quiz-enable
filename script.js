@@ -44,9 +44,17 @@
     tituloResultado: document.getElementById("titulo-resultado"),
     resumoResultado: document.getElementById("resumo-resultado"),
     msgRanking: document.getElementById("msg-ranking"),
+    resultadoFase: document.getElementById("resultado-fase"),
+    resultadoPontos: document.getElementById("resultado-pontos"),
+    resultadoAcertos: document.getElementById("resultado-acertos"),
+    resultadoTempo: document.getElementById("resultado-tempo"),
+    resultadoPosicao: document.getElementById("resultado-posicao"),
+    avisoRankingLive: document.getElementById("aviso-ranking-live"),
+    suaPosicaoExtra: document.getElementById("sua-posicao-extra"),
     tituloRanking: document.getElementById("titulo-ranking"),
     corpoRanking: document.getElementById("corpo-ranking"),
     btnJogarNovamente: document.getElementById("btn-jogar-novamente"),
+    btnVerRanking: document.getElementById("btn-ver-ranking"),
     avisos: document.getElementById("avisos")
   };
 
@@ -129,20 +137,33 @@
     });
   }
 
-  function renderizarTabelaRanking(corpoEl, lista) {
+  function renderizarTabelaRanking(corpoEl, lista, opcoes) {
+    opcoes = opcoes || {};
     if (!corpoEl) return;
     corpoEl.innerHTML = "";
+    var priv = Store ? Store.privacidadeAtual() : "primeiro_inicial";
+    var top = lista.slice(0, opcoes.limite || 10);
     if (!lista.length) {
       var tr = document.createElement("tr");
       tr.innerHTML = '<td colspan="5">Ainda não há resultados nesta fase.</td>';
       corpoEl.appendChild(tr);
       return;
     }
-    lista.forEach(function (item, i) {
+    top.forEach(function (item, i) {
+      var pos = item.posicao_ranking || (i + 1);
+      var ehVoce = opcoes.meuId && item.id === opcoes.meuId;
+      var nome = Store
+        ? Store.formatarNomePublico(item.participante_nome, priv)
+        : item.participante_nome;
       var tr = document.createElement("tr");
+      if (ehVoce) {
+        tr.className = "linha-voce";
+        tr.setAttribute("aria-current", "true");
+      }
       tr.innerHTML =
-        "<td>" + (i + 1) + "º</td>" +
-        "<th scope=\"row\">" + escapar(item.participante_nome) + "</th>" +
+        "<td>" + pos + "º</td>" +
+        "<th scope=\"row\">" + escapar(nome) +
+        (ehVoce ? ' <span class="selo-voce">Você</span>' : "") + "</th>" +
         "<td>" + item.pontuacao + "</td>" +
         "<td>" + item.quantidade_acertos + " de 5</td>" +
         "<td>" + formatarTempo(item.tempo_total_segundos) + "</td>";
@@ -206,7 +227,7 @@
     renderizarOpcoesFase(st);
     if (els.infoFaseInicio) {
       els.infoFaseInicio.textContent =
-        "Selecione uma fase e comece quando quiser. Cada fase tem 5 perguntas e vale até 90 pontos. Os horários servem só para identificar as fases.";
+        "Escolha a fase e comece quando quiser. Cada fase tem 5 perguntas e vale até 90 pontos. Os horários servem só para identificar as fases.";
     }
     return st;
   }
@@ -620,10 +641,16 @@
       : Promise.resolve({ ok: false });
 
     promessa.then(function (res) {
-      if (!res.ok) {
-        anunciar("Resultado salvo neste aparelho. Para aparecer em outros celulares, execute ATIVAR-NUVEM.sql no Supabase.");
+      if (!res.ok || !res.oficial) {
+        anunciar("Resultado aguardando sincronização. Ele só entra no ranking oficial após confirmação no banco remoto.");
+        if (els.msgRanking) {
+          els.msgRanking.textContent = "Aguardando sincronização com a nuvem…";
+        }
       } else {
         anunciar("Resultado gravado na nuvem. O ranking está sincronizado entre dispositivos.");
+      }
+      if (els.btnVerRanking && estado.fase) {
+        els.btnVerRanking.href = "ranking.html?fase=" + encodeURIComponent(estado.fase.id);
       }
       mostrarResultado();
     });
@@ -655,35 +682,79 @@
 
   function mostrarResultado() {
     mostrarTela(els.telaResultado);
-    els.resumoResultado.textContent =
-      estado.nome +
-      ", você acertou " +
-      estado.acertos +
-      " de 5 perguntas, somou " +
-      estado.pontos +
-      " de 90 pontos e concluiu em " +
-      formatarTempo(estado.tempoSegundos) +
-      ".";
+    var st = QuizStatus.obterEstadoQuiz();
+    var parcial = st.liberado && st.faseAtiva && estado.fase && st.faseAtiva.id === estado.fase.id;
 
-    els.msgRanking.textContent = "Atualizando ranking compartilhado...";
-    els.tituloRanking.textContent = "Ranking — " + estado.fase.nome;
+    if (els.resultadoFase) els.resultadoFase.textContent = estado.fase.nome;
+    if (els.resultadoPontos) els.resultadoPontos.textContent = "Você fez " + estado.pontos + " de 90 pontos";
+    if (els.resultadoAcertos) els.resultadoAcertos.textContent = estado.acertos + " de 5 respostas corretas";
+    if (els.resultadoTempo) els.resultadoTempo.textContent = "Tempo total: " + formatarTempo(estado.tempoSegundos);
+    if (els.resumoResultado) {
+      els.resumoResultado.textContent =
+        "Obrigado, " + estado.nome + "! Sua participação na " + estado.fase.nome + " foi registrada.";
+    }
+    if (els.msgRanking) els.msgRanking.textContent = "Atualizando ranking compartilhado...";
+    if (els.tituloRanking) {
+      els.tituloRanking.textContent = (parcial ? "Ranking parcial — " : "Ranking final — ") + estado.fase.nome;
+    }
+    if (els.suaPosicaoExtra) els.suaPosicaoExtra.hidden = true;
+    if (els.btnVerRanking && estado.fase) {
+      els.btnVerRanking.href = "ranking.html?fase=" + encodeURIComponent(estado.fase.id);
+    }
 
     carregarRankingFase(estado.fase.id, function (ranking) {
       var pos = ranking.findIndex(function (r) { return r.id === estado.participacaoId; }) + 1;
+      if (els.resultadoPosicao) {
+        els.resultadoPosicao.textContent = pos > 0
+          ? "Sua posição atual: " + pos + "º lugar"
+          : "Posição: aguardando sincronização";
+      }
       els.msgRanking.classList.remove("entrou", "fora");
       if (pos > 0 && pos <= 10) {
         els.msgRanking.classList.add("entrou");
         els.msgRanking.textContent = "Você está na posição " + pos + "ª no ranking desta fase.";
-      } else {
+      } else if (pos > 10) {
         els.msgRanking.classList.add("fora");
-        els.msgRanking.textContent = "Ranking atualizado da " + estado.fase.nome + ".";
+        els.msgRanking.textContent = "Confira o Top 10 e a sua posição abaixo.";
+        if (els.suaPosicaoExtra) {
+          els.suaPosicaoExtra.hidden = false;
+          els.suaPosicaoExtra.textContent =
+            "Sua posição: " + pos + "º — " + estado.pontos + " pontos — " +
+            estado.acertos + " de 5 acertos.";
+        }
+      } else {
+        els.msgRanking.textContent = "Ranking da " + estado.fase.nome + ".";
       }
-      renderizarTabelaRanking(els.corpoRanking, ranking);
-      anunciar(els.resumoResultado.textContent + " " + els.msgRanking.textContent);
+      renderizarTabelaRanking(els.corpoRanking, ranking, {
+        meuId: estado.participacaoId,
+        limite: 10
+      });
+      anunciar((els.resumoResultado ? els.resumoResultado.textContent + " " : "") + els.msgRanking.textContent);
     });
 
+    if (Store) {
+      Store.assinarRealtime({ faseId: estado.fase.id });
+      Store.onEvento(function (evento) {
+        if (evento !== "realtime" || els.telaResultado.hidden) return;
+        if (els.avisoRankingLive) {
+          els.avisoRankingLive.hidden = false;
+          els.avisoRankingLive.textContent = "Ranking atualizado";
+        }
+        carregarRankingFase(estado.fase.id, function (ranking) {
+          var pos = ranking.findIndex(function (r) { return r.id === estado.participacaoId; }) + 1;
+          if (els.resultadoPosicao && pos > 0) {
+            els.resultadoPosicao.textContent = "Sua posição atual: " + pos + "º lugar";
+          }
+          renderizarTabelaRanking(els.corpoRanking, ranking, {
+            meuId: estado.participacaoId,
+            limite: 10
+          });
+        });
+      });
+    }
+
     requestAnimationFrame(function () {
-      els.tituloResultado.focus();
+      if (els.tituloResultado) els.tituloResultado.focus();
     });
   }
 
