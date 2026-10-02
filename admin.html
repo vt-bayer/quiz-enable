@@ -34,9 +34,15 @@
 
     <section id="painel" class="painel" hidden>
       <div class="barra-acoes">
-        <p id="status-quiz-admin" class="status-quiz" aria-live="polite"></p>
+        <div class="status-wrap">
+          <p id="status-quiz-admin" class="status-quiz" aria-live="polite"></p>
+          <p id="status-sincronizacao" class="status-sync" aria-live="polite">Verificando dados…</p>
+          <p id="aviso-acoes-criticas" class="aviso-acoes" hidden>
+            Ações administrativas críticas não estão disponíveis porque a conexão segura com os dados não foi configurada.
+          </p>
+        </div>
         <div class="grupo-botoes">
-          <button type="button" id="btn-sync-nuvem" class="btn btn-secundario">Sincronizar nuvem</button>
+          <button type="button" id="btn-sync-nuvem" class="btn btn-secundario">Atualizar dados</button>
           <button type="button" id="btn-exportar" class="btn btn-primario">Exportar dashboard</button>
           <button type="button" id="btn-sair" class="btn btn-secundario">Sair</button>
         </div>
@@ -313,6 +319,7 @@
         <input type="text" id="motivo-exclusao-detalhe" maxlength="200" />
       </label>
       <p class="ajuda">O resultado sairá do ranking e as posições serão recalculadas.</p>
+      <p id="erro-excluir" class="erro" role="alert" hidden></p>
       <div class="grupo-botoes">
         <button type="button" id="confirmar-excluir" class="btn btn-primario">Excluir participação</button>
         <button type="button" id="cancelar-excluir" class="btn btn-secundario">Cancelar</button>
