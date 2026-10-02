@@ -1,165 +1,269 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Área administrativa do Quiz ENABLE">
-  <title>Área administrativa | Quiz ENABLE</title>
-  <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="admin.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex,nofollow" />
+  <title>Administração — Quiz ENABLE</title>
+  <link rel="stylesheet" href="admin.css" />
 </head>
-<body class="pagina-admin">
-  <a class="skip-link" href="#conteudo-admin">Ir para o conteúdo principal</a>
+<body>
+  <a class="pular-conteudo" href="#conteudo-admin">Pular para o conteúdo</a>
 
-  <div class="page page-admin">
-    <header class="site-header header-admin" role="banner">
-      <p class="brand">ENABLE</p>
-      <a href="index.html">Voltar ao quiz</a>
+  <main id="conteudo-admin" class="container-admin" tabindex="-1">
+    <header class="cabecalho-admin">
+      <div>
+        <p class="selo">Acesso restrito</p>
+        <h1>Painel Administrador</h1>
+        <p class="subtitulo">Quiz de Inclusão e Acessibilidade — 3 fases do almoço</p>
+      </div>
+      <a class="btn btn-secundario" href="index.html">Voltar ao quiz</a>
     </header>
 
-    <main id="conteudo-admin" class="main main-admin" tabindex="-1">
-      <section class="tela tela-admin" aria-labelledby="titulo-admin">
-        <h1 id="titulo-admin">Área administrativa</h1>
-        <p class="tagline">Quiz ENABLE — dados no Supabase</p>
+    <section id="tela-login" class="card-admin" aria-labelledby="titulo-login">
+      <h2 id="titulo-login">Entrar</h2>
+        <p>Digite a senha de administrador para continuar.</p>
+        <p class="ajuda-login">Senha padrão: <strong>enable2026</strong></p>
+        <form id="form-login" class="formulario">
+        <label for="senha-admin">Senha</label>
+        <input id="senha-admin" name="senha" type="password" autocomplete="current-password" required />
+        <p id="erro-login" class="erro" role="alert" hidden></p>
+        <button type="submit" class="btn btn-primario">Entrar</button>
+      </form>
+    </section>
 
-        <div class="aviso-config" role="status" aria-live="polite">
-          <p>
-            Área administrativa conectada ao Supabase. Faça login com seu usuário do projeto para listar, excluir e exportar participantes.
-          </p>
+    <section id="painel" class="painel" hidden>
+      <div class="barra-acoes">
+        <p id="status-quiz-admin" class="status-quiz" aria-live="polite"></p>
+        <div class="grupo-botoes">
+          <button type="button" id="btn-exportar" class="btn btn-primario">Exportar dashboard</button>
+          <button type="button" id="btn-sair" class="btn btn-secundario">Sair</button>
         </div>
+      </div>
 
-        <section id="secao-login" class="secao-login" aria-labelledby="titulo-login">
-          <h2 id="titulo-login" class="titulo-ranking">Login administrativo</h2>
-          <form id="form-login" class="form-login" novalidate>
-            <div class="campo">
-              <label for="login-email">E-mail</label>
-              <input
-                type="email"
-                id="login-email"
-                name="email"
-                required
-                autocomplete="username"
-                aria-required="true"
-                aria-describedby="login-email-erro"
-              >
-              <p id="login-email-erro" class="erro-campo" role="alert" hidden></p>
-            </div>
-            <div class="campo">
-              <label for="login-senha">Senha</label>
-              <input
-                type="password"
-                id="login-senha"
-                name="senha"
-                required
-                autocomplete="current-password"
-                aria-required="true"
-                aria-describedby="login-senha-erro"
-              >
-              <p id="login-senha-erro" class="erro-campo" role="alert" hidden></p>
-            </div>
-            <button type="submit" id="btn-entrar" class="btn btn-primario">
-              Entrar
-            </button>
-          </form>
-        </section>
+      <nav class="abas" role="tablist" aria-label="Áreas do painel">
+        <button type="button" role="tab" id="tab-dashboard" aria-controls="painel-dashboard" aria-selected="true">Dashboard</button>
+        <button type="button" role="tab" id="tab-fases" aria-controls="painel-fases" aria-selected="false">Fases</button>
+        <button type="button" role="tab" id="tab-perguntas" aria-controls="painel-perguntas" aria-selected="false">Perguntas</button>
+        <button type="button" role="tab" id="tab-resultados" aria-controls="painel-resultados" aria-selected="false">Resultados</button>
+        <button type="button" role="tab" id="tab-rankings" aria-controls="painel-rankings" aria-selected="false">Rankings</button>
+      </nav>
 
-        <section id="secao-painel" class="secao-painel" hidden aria-labelledby="titulo-painel">
-          <div class="painel-topo">
-            <h2 id="titulo-painel" class="titulo-ranking">Participantes</h2>
-            <p id="usuario-logado" class="ajuda"></p>
-            <button type="button" id="btn-sair" class="btn btn-secundario">
-              Sair
-            </button>
-          </div>
+      <div id="painel-dashboard" role="tabpanel" aria-labelledby="tab-dashboard">
+        <h2>Dashboard de Participação</h2>
 
-          <div class="admin-toolbar">
-            <div class="campo campo-busca">
-              <label for="busca-nome">Buscar por nome</label>
-              <input
-                type="search"
-                id="busca-nome"
-                name="busca"
-                autocomplete="off"
-                placeholder="Digite parte do nome"
-                aria-describedby="busca-ajuda"
-              >
-              <p id="busca-ajuda" class="ajuda">A tabela é filtrada conforme você digita.</p>
-            </div>
+        <form id="filtros-dashboard" class="filtros" aria-label="Filtros do dashboard">
+          <label>
+            Data do evento
+            <input type="date" id="filtro-data" />
+          </label>
+          <label>
+            Fase
+            <select id="filtro-fase">
+              <option value="todas">Todas</option>
+              <option value="fase-1">Fase 1 (10h00–11h30)</option>
+              <option value="fase-2">Fase 2 (11h40–12h30)</option>
+              <option value="fase-3">Fase 3 (12h40–14h00)</option>
+            </select>
+          </label>
+          <label>
+            Tipo de público
+            <select id="filtro-publico">
+              <option value="todos">Todos</option>
+              <option value="bayer">Bayer</option>
+              <option value="parceiro">Parceiros</option>
+            </select>
+          </label>
+          <label>
+            Status
+            <select id="filtro-status">
+              <option value="concluida">Concluídas</option>
+              <option value="todas">Todas</option>
+              <option value="em_andamento">Em andamento</option>
+              <option value="incompleta">Incompletas</option>
+              <option value="expirada">Expiradas</option>
+              <option value="cancelada">Canceladas</option>
+            </select>
+          </label>
+          <label>
+            Contagem
+            <select id="filtro-contagem">
+              <option value="participacoes">Participações</option>
+              <option value="unicos">Participantes únicos</option>
+            </select>
+          </label>
+        </form>
 
-            <div class="acoes-admin" role="group" aria-label="Ações administrativas">
-              <button type="button" id="btn-atualizar" class="btn btn-secundario">
-                Atualizar lista
-              </button>
-              <button type="button" id="btn-exportar" class="btn btn-primario">
-                Exportar participantes para Excel
-              </button>
-              <button type="button" id="btn-limpar-todos" class="btn btn-perigo">
-                Limpar todos os resultados
-              </button>
-            </div>
-          </div>
+        <div class="cards-indicadores" id="cards-indicadores"></div>
 
-          <p id="resumo-tabela" class="resumo-tabela" aria-live="polite"></p>
+        <div class="grade-graficos">
+          <article class="card-admin">
+            <h3>Distribuição por público</h3>
+            <div id="grafico-publico" class="grafico-barras" role="img" aria-label="Distribuição Bayer e parceiros"></div>
+          </article>
+          <article class="card-admin">
+            <h3>Participação por fase</h3>
+            <div id="grafico-fases" class="grafico-barras" role="img" aria-label="Participação por fase"></div>
+          </article>
+          <article class="card-admin">
+            <h3>Desempenho médio por público</h3>
+            <div id="grafico-desempenho" class="grafico-barras" role="img" aria-label="Pontuação média Bayer e parceiros"></div>
+          </article>
+          <article class="card-admin">
+            <h3>Conclusão por fase</h3>
+            <div id="grafico-conclusao" class="grafico-barras" role="img" aria-label="Conclusão por fase"></div>
+          </article>
+        </div>
+      </div>
 
-          <div class="tabela-wrap">
-            <table id="tabela-participantes" class="tabela-participantes">
-              <caption>
-                Participantes registrados no Supabase
-              </caption>
-              <thead>
-                <tr>
-                  <th scope="col">Posição</th>
-                  <th scope="col">Nome</th>
-                  <th scope="col">Tipo</th>
-                  <th scope="col">Matrícula</th>
-                  <th scope="col">Empresa</th>
-                  <th scope="col">Pontos</th>
-                  <th scope="col">Acertos</th>
-                  <th scope="col">Tempo</th>
-                  <th scope="col">Data e hora</th>
-                  <th scope="col">Prêmio da roleta</th>
-                  <th scope="col">Ações</th>
-                </tr>
-              </thead>
-              <tbody id="corpo-tabela"></tbody>
-            </table>
-          </div>
+      <div id="painel-fases" role="tabpanel" aria-labelledby="tab-fases" hidden>
+        <h2>Gestão de Fases</h2>
+        <p class="subtitulo-secao">Os horários identificam cada fase. Pausar ou encerrar é o que impede novas participações.</p>
+        <div id="lista-fases" class="lista-fases"></div>
+      </div>
 
-          <p id="tabela-vazia" class="tabela-vazia" hidden>
-            Nenhum participante encontrado.
-          </p>
-        </section>
-      </section>
-    </main>
+      <div id="painel-perguntas" role="tabpanel" aria-labelledby="tab-perguntas" hidden>
+        <h2>Gestão de Perguntas</h2>
+        <form id="filtros-perguntas" class="filtros">
+          <label>
+            Fase
+            <select id="filtro-perg-fase">
+              <option value="todas">Todas</option>
+              <option value="fase-1">Fase 1</option>
+              <option value="fase-2">Fase 2</option>
+              <option value="fase-3">Fase 3</option>
+              <option value="reserva">Reserva</option>
+            </select>
+          </label>
+          <label>
+            Status
+            <select id="filtro-perg-status">
+              <option value="todas">Todos</option>
+              <option value="ativa">Ativa</option>
+              <option value="inativa">Inativa</option>
+              <option value="reserva">Reserva</option>
+            </select>
+          </label>
+          <label>
+            Dificuldade
+            <select id="filtro-perg-dif">
+              <option value="todas">Todas</option>
+              <option value="facil">Fácil</option>
+              <option value="intermediaria">Intermediária</option>
+              <option value="dificil">Difícil</option>
+            </select>
+          </label>
+        </form>
+        <div id="lista-perguntas" class="lista-perguntas"></div>
+      </div>
 
-    <div
-      id="avisos-admin"
-      class="avisos"
-      role="status"
-      aria-live="polite"
-      aria-atomic="true"
-    ></div>
+      <div id="painel-resultados" role="tabpanel" aria-labelledby="tab-resultados" hidden>
+        <h2>Tabela detalhada</h2>
+        <form id="busca-resultados" class="filtros">
+          <label>
+            Buscar por nome
+            <input type="search" id="busca-nome" placeholder="Nome do participante" />
+          </label>
+        </form>
+        <p id="contador-resultados" class="contador"></p>
+        <div class="tabela-wrap">
+          <table class="tabela" id="tabela-resultados">
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>Público</th>
+                <th>Empresa</th>
+                <th>Fase</th>
+                <th>Status</th>
+                <th>Pontuação</th>
+                <th>Acertos</th>
+                <th>Tempo</th>
+                <th>Início</th>
+                <th>Finalização</th>
+                <th>Posição</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="painel-rankings" role="tabpanel" aria-labelledby="tab-rankings" hidden>
+        <h2>Rankings administrativos</h2>
+        <form class="filtros" id="filtros-ranking-admin">
+          <label>
+            Fase
+            <select id="ranking-fase">
+              <option value="fase-1">Fase 1</option>
+              <option value="fase-2">Fase 2</option>
+              <option value="fase-3">Fase 3</option>
+            </select>
+          </label>
+          <label>
+            Público
+            <select id="ranking-publico">
+              <option value="todos">Geral da fase</option>
+              <option value="bayer">Somente Bayer</option>
+              <option value="parceiro">Somente parceiros</option>
+            </select>
+          </label>
+        </form>
+        <div class="tabela-wrap">
+          <table class="tabela" id="tabela-ranking-admin">
+            <thead>
+              <tr>
+                <th>Posição</th>
+                <th>Participante</th>
+                <th>Público</th>
+                <th>Pontuação</th>
+                <th>Acertos</th>
+                <th>Tempo</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="modal-export" class="modal" hidden>
+    <div class="modal-conteudo" role="dialog" aria-modal="true" aria-labelledby="titulo-export">
+      <h2 id="titulo-export">Exportar dashboard</h2>
+      <p id="resumo-export"></p>
+      <label>
+        Formato
+        <select id="formato-export">
+          <option value="xlsx">Excel (.xlsx)</option>
+          <option value="csv">CSV</option>
+        </select>
+      </label>
+      <div class="grupo-botoes">
+        <button type="button" id="confirmar-export" class="btn btn-primario">Confirmar exportação</button>
+        <button type="button" id="cancelar-export" class="btn btn-secundario">Cancelar</button>
+      </div>
+    </div>
   </div>
 
-  <div
-    id="dialogo-confirmacao"
-    class="dialogo"
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="dialogo-titulo"
-    aria-describedby="dialogo-texto"
-    hidden
-  >
-    <div class="dialogo-painel">
-      <h2 id="dialogo-titulo" class="dialogo-titulo" tabindex="-1"></h2>
-      <p id="dialogo-texto" class="dialogo-texto"></p>
-      <div class="dialogo-acoes" role="group" aria-label="Confirmação">
-        <button type="button" id="dialogo-cancelar" class="btn btn-secundario">
-          Cancelar
-        </button>
-        <button type="button" id="dialogo-confirmar" class="btn btn-perigo">
-          Confirmar
-        </button>
+  <div id="modal-auditoria" class="modal" hidden>
+    <div class="modal-conteudo" role="dialog" aria-modal="true" aria-labelledby="titulo-auditoria">
+      <h2 id="titulo-auditoria">Corrigir tipo de público</h2>
+      <p id="resumo-auditoria"></p>
+      <label>
+        Novo tipo
+        <select id="novo-publico">
+          <option value="bayer">Bayer</option>
+          <option value="parceiro">Parceiro</option>
+        </select>
+      </label>
+      <label>
+        Motivo (opcional)
+        <input type="text" id="motivo-auditoria" />
+      </label>
+      <div class="grupo-botoes">
+        <button type="button" id="confirmar-auditoria" class="btn btn-primario">Confirmar</button>
+        <button type="button" id="cancelar-auditoria" class="btn btn-secundario">Cancelar</button>
       </div>
     </div>
   </div>
@@ -167,6 +271,9 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="supabase-config.js"></script>
   <script src="supabase-client.js"></script>
-  <script src="admin.js" defer></script>
+  <script src="quiz-data.js"></script>
+  <script src="quiz-status.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="admin.js"></script>
 </body>
 </html>
