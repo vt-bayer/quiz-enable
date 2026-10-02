@@ -445,7 +445,7 @@
       var val = QuizData.validarDistribuicaoFase(fase.id, perguntas);
       var qtd = perguntas.filter(function (p) { return p.faseId === fase.id && p.status === "ativa"; }).length;
       var participantes = parts.filter(function (p) {
-        return p.faseId === fase.id && p.status === "concluida";
+        return p.faseId === fase.id && p.status === "concluida" && !p.excluida;
       }).length;
       var nomeFaseCurto = fase.ordem === 1 ? "Fase 1" : fase.ordem === 2 ? "Fase 2" : "Fase 3";
       var msgVal = val.ok
