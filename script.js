@@ -2,8 +2,8 @@
   "use strict";
 
   var LETRAS = ["A", "B", "C", "D"];
-  var STORAGE_RANKING = "quizEnableParticipacoes";
-  var db = typeof obterClienteSupabase === "function" ? obterClienteSupabase() : null;
+  var Store = window.QuizStore;
+
 
   var els = {
     telaStatus: document.getElementById("tela-status"),
@@ -100,35 +100,33 @@
   }
 
   function lerParticipacoes() {
-    try {
-      var bruto = localStorage.getItem(STORAGE_RANKING);
-      var dados = bruto ? JSON.parse(bruto) : [];
-      return Array.isArray(dados) ? dados : [];
-    } catch (e) {
-      return [];
-    }
-  }
-
-  function salvarParticipacoes(lista) {
-    localStorage.setItem(STORAGE_RANKING, JSON.stringify(lista));
+    return Store ? Store.lerCache() : [];
   }
 
   function ordenarRanking(lista) {
-    return lista.slice().sort(function (a, b) {
-      if (b.pontuacao !== a.pontuacao) return b.pontuacao - a.pontuacao;
-      if (b.quantidade_acertos !== a.quantidade_acertos) return b.quantidade_acertos - a.quantidade_acertos;
-      if (a.tempo_total_segundos !== b.tempo_total_segundos) return a.tempo_total_segundos - b.tempo_total_segundos;
-      return String(a.finalizado_em || "").localeCompare(String(b.finalizado_em || ""));
-    });
+    return Store ? Store.ordenarRanking(lista) : lista.slice();
   }
 
-  function rankingFase(faseId, apenasConcluidas) {
+  function rankingFaseLocal(faseId, apenasConcluidas) {
     var lista = lerParticipacoes().filter(function (p) {
       if (p.fase_id !== faseId) return false;
       if (apenasConcluidas !== false) return p.status === "concluida";
       return true;
     });
     return ordenarRanking(lista);
+  }
+
+  function carregarRankingFase(faseId, callback) {
+    if (!Store) {
+      callback(rankingFaseLocal(faseId, true));
+      return;
+    }
+    Store.rankingFase(faseId, true).then(function (res) {
+      if (!res.ok) {
+        anunciar("Usando cache local. Ative a nuvem no Supabase (arquivo ATIVAR-NUVEM.sql) para sincronizar entre dispositivos.");
+      }
+      callback(res.ranking || rankingFaseLocal(faseId, true));
+    });
   }
 
   function renderizarTabelaRanking(corpoEl, lista) {
@@ -196,7 +194,9 @@
             els.tituloRankingStatus.textContent =
               "Ranking — " + (fase ? fase.nome : st.rankingFaseId);
           }
-          renderizarListaRanking(els.listaRankingStatus, rankingFase(st.rankingFaseId, true));
+          carregarRankingFase(st.rankingFaseId, function (ranking) {
+            renderizarListaRanking(els.listaRankingStatus, ranking);
+          });
         }
       }
       return st;
@@ -279,7 +279,7 @@
     }
   }
 
-  function jaParticipouNaFase(nome, tipo, faseId) {
+  function jaParticipouNaFaseLocal(nome, tipo, faseId) {
     var chave = String(nome).trim().toLowerCase();
     return lerParticipacoes().some(function (p) {
       return (
@@ -298,72 +298,77 @@
       return false;
     }
 
-    if (jaParticipouNaFase(cadastro.nome, cadastro.tipoPublico, fase.id)) {
-      anunciar("Você já concluiu esta fase. Confira o ranking ou aguarde a próxima fase.");
-      return false;
-    }
-
-    estado.nome = cadastro.nome;
-    estado.tipoPublico = cadastro.tipoPublico;
-    estado.empresa = cadastro.empresa || "";
-    estado.matricula = cadastro.matricula || "";
-    estado.fase = fase;
-    estado.perguntas = QuizData.perguntasDaFase(fase.id, !!fase.embaralharPerguntas);
-    estado.indice = 0;
-    estado.selecionada = null;
-    estado.respondida = false;
-    estado.pontos = 0;
-    estado.acertos = 0;
-    estado.inicioMs = Date.now();
-    estado.tempoSegundos = 0;
-    estado.respostas = [];
-    estado.participacaoId = "local-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
-
-    var registro = {
-      id: estado.participacaoId,
-      participante_nome: estado.nome,
-      tipo_publico: estado.tipoPublico,
-      empresa_parceira: estado.empresa,
-      matricula: estado.matricula,
-      fase_id: fase.id,
-      fase_nome: fase.nome,
-      data_evento: QuizData.dataEvento() || QuizStatus.agoraSP().dateStr,
-      horario_inicio_fase: fase.horarioInicio,
-      horario_fim_fase: fase.horarioFim,
-      iniciado_em: new Date().toISOString(),
-      finalizado_em: null,
-      status: "em_andamento",
-      quantidade_perguntas: 5,
-      quantidade_acertos: 0,
-      pontuacao: 0,
-      tempo_total_segundos: 0
-    };
-
-    var lista = lerParticipacoes();
-    lista.push(registro);
-    salvarParticipacoes(lista);
-
-    if (db) {
-      db.from("participacoes")
-        .insert({
-          id: estado.participacaoId,
-          participante_nome: registro.participante_nome,
-          tipo_publico: registro.tipo_publico,
-          empresa_parceira: registro.empresa_parceira || null,
-          fase_id: registro.fase_id,
-          fase_nome: registro.fase_nome,
-          data_evento: registro.data_evento,
-          horario_inicio_fase: registro.horario_inicio_fase,
-          horario_fim_fase: registro.horario_fim_fase,
-          status: "em_andamento",
-          quantidade_perguntas: 5
+    function seguir() {
+      estado.nome = cadastro.nome;
+      estado.tipoPublico = cadastro.tipoPublico;
+      estado.empresa = cadastro.empresa || "";
+      estado.matricula = cadastro.matricula || "";
+      estado.fase = fase;
+      estado.perguntas = QuizData.perguntasDaFase(fase.id, !!fase.embaralharPerguntas);
+      estado.indice = 0;
+      estado.selecionada = null;
+      estado.respondida = false;
+      estado.pontos = 0;
+      estado.acertos = 0;
+      estado.inicioMs = Date.now();
+      estado.tempoSegundos = 0;
+      estado.respostas = [];
+      estado.participacaoId = Store ? Store.gerarUuid() : (
+        "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+          var r = (Math.random() * 16) | 0;
+          var v = c === "x" ? r : (r & 0x3) | 0x8;
+          return v.toString(16);
         })
-        .then(function () { /* ok */ })
-        .catch(function () { /* fallback local */ });
+      );
+
+      var registro = {
+        id: estado.participacaoId,
+        participante_nome: estado.nome,
+        tipo_publico: estado.tipoPublico,
+        empresa_parceira: estado.empresa,
+        matricula: estado.matricula,
+        fase_id: fase.id,
+        fase_nome: fase.nome,
+        data_evento: QuizData.dataEvento() || QuizStatus.agoraSP().dateStr,
+        horario_inicio_fase: fase.horarioInicio,
+        horario_fim_fase: fase.horarioFim,
+        iniciado_em: new Date().toISOString(),
+        finalizado_em: null,
+        status: "em_andamento",
+        quantidade_perguntas: 5,
+        quantidade_acertos: 0,
+        pontuacao: 0,
+        tempo_total_segundos: 0
+      };
+
+      var salvar = Store
+        ? Store.salvarRemoto(registro)
+        : Promise.resolve({ ok: false, local: true });
+
+      salvar.then(function (res) {
+        if (!res.ok) {
+          if (Store) Store.upsertLocal(registro);
+          anunciar("Participação salva neste aparelho. Para sincronizar entre celulares, execute ATIVAR-NUVEM.sql no Supabase.");
+        }
+        mostrarTela(els.telaQuiz);
+        renderizarPergunta();
+      });
     }
 
-    mostrarTela(els.telaQuiz);
-    renderizarPergunta();
+    if (Store) {
+      Store.jaParticipou(cadastro.nome, cadastro.tipoPublico, fase.id).then(function (res) {
+        if (res.existe) {
+          anunciar("Você já concluiu esta fase. Confira o ranking ou escolha outra fase.");
+          return;
+        }
+        seguir();
+      });
+    } else if (jaParticipouNaFaseLocal(cadastro.nome, cadastro.tipoPublico, fase.id)) {
+      anunciar("Você já concluiu esta fase. Confira o ranking ou escolha outra fase.");
+      return false;
+    } else {
+      seguir();
+    }
     return true;
   }
 
@@ -581,16 +586,14 @@
   }
 
   function atualizarParticipacaoLocal(patch) {
-    var lista = lerParticipacoes();
-    for (var i = 0; i < lista.length; i++) {
-      if (lista[i].id === estado.participacaoId) {
-        Object.keys(patch).forEach(function (k) {
-          lista[i][k] = patch[k];
-        });
-        break;
-      }
+    if (!estado.participacaoId) return;
+    if (Store) {
+      var atual = lerParticipacoes().find(function (p) { return p.id === estado.participacaoId; }) || {
+        id: estado.participacaoId
+      };
+      Store.upsertLocal(Object.assign({}, atual, patch));
+      return;
     }
-    salvarParticipacoes(lista);
   }
 
   function finalizarParticipacao() {
@@ -603,54 +606,55 @@
 
     estado.tempoSegundos = Math.max(1, Math.round((Date.now() - estado.inicioMs) / 1000));
     var finalizado = new Date().toISOString();
-    atualizarParticipacaoLocal({
+    var patch = {
       status: "concluida",
       finalizado_em: finalizado,
       pontuacao: estado.pontos,
       quantidade_acertos: estado.acertos,
       tempo_total_segundos: estado.tempoSegundos
+    };
+    atualizarParticipacaoLocal(patch);
+
+    var promessa = Store
+      ? Store.atualizarRemoto(estado.participacaoId, patch)
+      : Promise.resolve({ ok: false });
+
+    promessa.then(function (res) {
+      if (!res.ok) {
+        anunciar("Resultado salvo neste aparelho. Para aparecer em outros celulares, execute ATIVAR-NUVEM.sql no Supabase.");
+      } else {
+        anunciar("Resultado gravado na nuvem. O ranking está sincronizado entre dispositivos.");
+      }
+      mostrarResultado();
     });
-
-    if (db) {
-      db.from("participacoes")
-        .update({
-          status: "concluida",
-          finalizado_em: finalizado,
-          pontuacao: estado.pontos,
-          quantidade_acertos: estado.acertos,
-          tempo_total_segundos: estado.tempoSegundos
-        })
-        .eq("id", estado.participacaoId)
-        .then(function () { /* ok */ })
-        .catch(function () { /* local ok */ });
-    }
-
-    mostrarResultado();
   }
 
   function expirarParticipacao(mensagem) {
-    atualizarParticipacaoLocal({
+    var patch = {
       status: "expirada",
       finalizado_em: new Date().toISOString(),
       pontuacao: estado.pontos,
       quantidade_acertos: estado.acertos,
       tempo_total_segundos: Math.max(1, Math.round((Date.now() - estado.inicioMs) / 1000))
-    });
+    };
+    atualizarParticipacaoLocal(patch);
+    if (Store && estado.participacaoId) {
+      Store.atualizarRemoto(estado.participacaoId, patch);
+    }
     mostrarTela(els.telaStatus);
     if (els.msgStatus) els.msgStatus.textContent = mensagem;
     if (els.blocoRankingStatus && estado.fase) {
       els.blocoRankingStatus.hidden = false;
       els.tituloRankingStatus.textContent = "Ranking final — " + estado.fase.nome;
-      renderizarListaRanking(els.listaRankingStatus, rankingFase(estado.fase.id, true));
+      carregarRankingFase(estado.fase.id, function (ranking) {
+        renderizarListaRanking(els.listaRankingStatus, ranking);
+      });
     }
     anunciar(mensagem);
   }
 
   function mostrarResultado() {
     mostrarTela(els.telaResultado);
-    var ranking = rankingFase(estado.fase.id, true);
-    var pos = ranking.findIndex(function (r) { return r.id === estado.participacaoId; }) + 1;
-
     els.resumoResultado.textContent =
       estado.nome +
       ", você acertou " +
@@ -661,18 +665,23 @@
       formatarTempo(estado.tempoSegundos) +
       ".";
 
-    els.msgRanking.classList.remove("entrou", "fora");
-    if (pos > 0 && pos <= 10) {
-      els.msgRanking.classList.add("entrou");
-      els.msgRanking.textContent = "Você está na posição " + pos + "ª no ranking desta fase.";
-    } else {
-      els.msgRanking.classList.add("fora");
-      els.msgRanking.textContent = "Ranking atualizado da " + estado.fase.nome + ".";
-    }
-
+    els.msgRanking.textContent = "Atualizando ranking compartilhado...";
     els.tituloRanking.textContent = "Ranking — " + estado.fase.nome;
-    renderizarTabelaRanking(els.corpoRanking, ranking);
-    anunciar(els.resumoResultado.textContent + " " + els.msgRanking.textContent);
+
+    carregarRankingFase(estado.fase.id, function (ranking) {
+      var pos = ranking.findIndex(function (r) { return r.id === estado.participacaoId; }) + 1;
+      els.msgRanking.classList.remove("entrou", "fora");
+      if (pos > 0 && pos <= 10) {
+        els.msgRanking.classList.add("entrou");
+        els.msgRanking.textContent = "Você está na posição " + pos + "ª no ranking desta fase.";
+      } else {
+        els.msgRanking.classList.add("fora");
+        els.msgRanking.textContent = "Ranking atualizado da " + estado.fase.nome + ".";
+      }
+      renderizarTabelaRanking(els.corpoRanking, ranking);
+      anunciar(els.resumoResultado.textContent + " " + els.msgRanking.textContent);
+    });
+
     requestAnimationFrame(function () {
       els.tituloResultado.focus();
     });
@@ -911,6 +920,15 @@
   }
 
   atualizarInterfacePorStatus();
+  if (Store) {
+    Store.statusNuvem().then(function (st) {
+      if (!st.ok) {
+        console.warn("[Quiz ENABLE] Nuvem offline:", st.motivo);
+      } else {
+        Store.buscarRemoto({});
+      }
+    });
+  }
   setInterval(function () {
     if (!els.telaQuiz.hidden) {
       if (estado.fase && !QuizStatus.fasePodeSerJogada(estado.fase.id) && estado.participacaoId && estado.indice < 5) {
