@@ -62,7 +62,25 @@
       if (p && p.id) mapa[p.id] = p;
     });
     (extras || []).forEach(function (p) {
-      if (p && p.id) mapa[p.id] = Object.assign({}, mapa[p.id] || {}, p);
+      if (!p || !p.id) return;
+      var prev = mapa[p.id];
+      // Evita que um fetch atrasado "desfaça" exclusão já confirmada no cliente
+      if (prev && (prev.excluida || prev.status === "excluida") && !(p.excluida || p.status === "excluida")) {
+        var prevT = Date.parse(prev.excluida_em || prev.atualizado_em || 0) || 0;
+        var newT = Date.parse(p.atualizado_em || 0) || 0;
+        if (prevT >= newT) {
+          mapa[p.id] = Object.assign({}, p, {
+            excluida: true,
+            status: "excluida",
+            excluida_em: prev.excluida_em || prev.atualizado_em || agoraIso(),
+            excluida_por: prev.excluida_por || null,
+            motivo_exclusao: prev.motivo_exclusao || null,
+            posicao_ranking: null
+          });
+          return;
+        }
+      }
+      mapa[p.id] = Object.assign({}, prev || {}, p);
     });
     return Object.keys(mapa).map(function (k) { return mapa[k]; });
   }
@@ -461,11 +479,14 @@
     });
     if (!locais.length) return Promise.resolve({ ok: true, enviados: 0 });
 
-    // Envia em lotes pequenos para não travar a UI
+    // Não republicar registros já excluídos como "ativos"
     var linhas = locais.map(function (p) {
       var linha = paraLinhaSupabase(p);
-      if (linha.status === "excluida") linha.excluida = true;
-      // Evita rejeição por data inválida
+      if (p.excluida || p.status === "excluida") {
+        linha.excluida = true;
+        linha.status = linha.status === "excluida" ? "excluida" : linha.status;
+        linha.posicao_ranking = null;
+      }
       if (linha.data_evento && !/^\d{4}-\d{2}-\d{2}$/.test(String(linha.data_evento))) {
         linha.data_evento = null;
       }

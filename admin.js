@@ -1018,12 +1018,19 @@
         editandoExcluirId = null;
         setExcluindoUI(false);
         setErroExcluir(null);
-        sincronizarNuvem(function () {
-          renderCards();
-          renderGraficos();
-          renderResultados();
-          renderRankingAdmin();
-        }, { publicar: false });
+        // Atualiza UI pelo cache oficial local; evita sync imediato que pode reverter exclusão
+        renderCards();
+        renderGraficos();
+        renderResultados();
+        renderRankingAdmin();
+        setTimeout(function () {
+          sincronizarNuvem(function () {
+            renderCards();
+            renderGraficos();
+            renderResultados();
+            renderRankingAdmin();
+          }, { publicar: false });
+        }, 1500);
         alert("Participação excluída com sucesso. O ranking foi atualizado.");
       }).catch(function () {
         setExcluindoUI(false);
