@@ -6,10 +6,10 @@
 
   var SENHA_PADRAO = "enable2026";
   var STORAGE_AUTH = "quizEnableAdminAuth";
-  var STORAGE_PART = "quizEnableParticipacoes";
   var STORAGE_AUDIT = "quizEnableAuditoria";
   var STORAGE_EXPORT = "quizEnableHistoricoExport";
   var STORAGE_SENHA = "quizEnableAdminSenha";
+  var Store = window.QuizStore;
 
   var editandoPublicoId = null;
 
@@ -21,6 +21,7 @@
     erroLogin: document.getElementById("erro-login"),
     btnSair: document.getElementById("btn-sair"),
     btnExportar: document.getElementById("btn-exportar"),
+    btnSyncNuvem: document.getElementById("btn-sync-nuvem"),
     statusQuiz: document.getElementById("status-quiz-admin"),
     cards: document.getElementById("cards-indicadores"),
     listaFases: document.getElementById("lista-fases"),
@@ -96,44 +97,55 @@
   }
 
   function carregarParticipacoes() {
-    try {
-      var bruto = localStorage.getItem(STORAGE_PART);
-      var lista = bruto ? JSON.parse(bruto) : [];
-      return Array.isArray(lista) ? lista.map(normalizarParticipacao) : [];
-    } catch (e) {
-      return [];
-    }
+    var lista = Store ? Store.lerCache() : [];
+    return lista.map(normalizarParticipacao);
   }
 
   function salvarParticipacoes(lista) {
-    var gravar = (lista || []).map(function (p) {
-      var raw = p && p._raw ? Object.assign({}, p._raw) : {};
-      return Object.assign(raw, {
-        id: p.id || raw.id,
-        participante_nome: p.participanteNome || raw.participante_nome || "",
-        participanteNome: p.participanteNome || raw.participanteNome || "",
-        tipo_publico: p.tipoPublico || raw.tipo_publico || "",
-        tipoPublico: p.tipoPublico || raw.tipoPublico || "",
-        empresa_parceira: p.empresaParceira || raw.empresa_parceira || "",
-        empresaParceira: p.empresaParceira || raw.empresaParceira || "",
-        matricula: p.matricula || raw.matricula || "",
-        fase_id: p.faseId || raw.fase_id || "",
-        faseId: p.faseId || raw.faseId || "",
-        fase_nome: p.faseNome || raw.fase_nome || "",
-        faseNome: p.faseNome || raw.faseNome || "",
-        data_evento: p.dataEvento || raw.data_evento || "",
-        dataEvento: p.dataEvento || raw.dataEvento || "",
-        iniciado_em: p.iniciadoEm || raw.iniciado_em || "",
-        finalizado_em: p.finalizadoEm || raw.finalizado_em || "",
-        status: p.status || raw.status || "",
-        quantidade_perguntas: p.quantidadePerguntas != null ? p.quantidadePerguntas : raw.quantidade_perguntas,
-        quantidade_acertos: p.quantidadeAcertos != null ? p.quantidadeAcertos : raw.quantidade_acertos,
-        pontuacao: p.pontuacao != null ? p.pontuacao : raw.pontuacao,
-        tempo_total_segundos: p.tempoTotalSegundos != null ? p.tempoTotalSegundos : raw.tempo_total_segundos,
-        posicao_ranking: p.posicaoRanking != null ? p.posicaoRanking : raw.posicao_ranking
-      });
+    if (Store) {
+      localStorage.setItem(Store.STORAGE_CACHE, JSON.stringify((lista || []).map(function (p) {
+        return Store.normalizar({
+          id: p.id,
+          participante_nome: p.participanteNome,
+          tipo_publico: p.tipoPublico,
+          empresa_parceira: p.empresaParceira,
+          matricula: p.matricula,
+          fase_id: p.faseId,
+          fase_nome: p.faseNome,
+          data_evento: p.dataEvento,
+          iniciado_em: p.iniciadoEm,
+          finalizado_em: p.finalizadoEm,
+          status: p.status,
+          quantidade_perguntas: p.quantidadePerguntas,
+          quantidade_acertos: p.quantidadeAcertos,
+          pontuacao: p.pontuacao,
+          tempo_total_segundos: p.tempoTotalSegundos,
+          posicao_ranking: p.posicaoRanking
+        });
+      })));
+      return;
+    }
+  }
+
+  function sincronizarNuvem(callback) {
+    if (!Store) {
+      if (callback) callback(false, "Store indisponível");
+      return;
+    }
+    Store.buscarRemoto({}).then(function (res) {
+      if (els.statusQuiz) {
+        if (res.ok) {
+          els.statusQuiz.textContent =
+            (els.statusQuiz.textContent.split(" · Nuvem")[0] || els.statusQuiz.textContent) +
+            " · Nuvem: sincronizada (" + (res.dados || []).length + " registros)";
+        } else {
+          els.statusQuiz.textContent =
+            (els.statusQuiz.textContent.split(" · Nuvem")[0] || els.statusQuiz.textContent) +
+            " · Nuvem: offline — execute ATIVAR-NUVEM.sql no Supabase";
+        }
+      }
+      if (callback) callback(!!res.ok, res.motivo);
     });
-    localStorage.setItem(STORAGE_PART, JSON.stringify(gravar));
   }
 
   function registrarAuditoria(registro) {
@@ -572,6 +584,14 @@
 
   function atualizarTudo() {
     atualizarStatusQuiz();
+    sincronizarNuvem(function () {
+      renderCards();
+      renderGraficos();
+      renderFases();
+      renderPerguntas();
+      renderResultados();
+      renderRankingAdmin();
+    });
     renderCards();
     renderGraficos();
     renderFases();
@@ -609,6 +629,17 @@
     sessionStorage.removeItem(STORAGE_AUTH);
     mostrarPainel(false);
   });
+
+  if (els.btnSyncNuvem) {
+    els.btnSyncNuvem.addEventListener("click", function () {
+      sincronizarNuvem(function (ok) {
+        atualizarTudo();
+        alert(ok
+          ? "Nuvem sincronizada. Os resultados de todos os dispositivos foram carregados."
+          : "Não foi possível sincronizar. Abra o Supabase SQL Editor e execute o arquivo ATIVAR-NUVEM.sql.");
+      });
+    });
+  }
 
   document.querySelectorAll('[role="tab"]').forEach(function (tab) {
     tab.addEventListener("click", function () {
@@ -783,6 +814,9 @@
     if (!confirm("Confirmar alteração de público de " + labelPublico(ant) + " para " + labelPublico(novo) + "?")) return;
     p.tipoPublico = novo;
     salvarParticipacoes(lista);
+    if (Store) {
+      Store.atualizarRemoto(p.id, { tipo_publico: novo });
+    }
     registrarAuditoria({
       acao: "corrigir_tipo_publico",
       entidade: "participacao",
