@@ -659,7 +659,7 @@
       mostrarPainel(true);
     } else {
       els.erroLogin.hidden = false;
-      els.erroLogin.textContent = "Senha incorreta. Use: enable2026";
+      els.erroLogin.textContent = "Senha incorreta. Tente novamente.";
     }
   });
 
