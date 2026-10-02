@@ -12,6 +12,8 @@
   var Store = window.QuizStore;
 
   var editandoPublicoId = null;
+  var editandoExcluirId = null;
+  var dadosRemotosOk = false;
 
   var els = {
     login: document.getElementById("tela-login"),
@@ -23,6 +25,8 @@
     btnExportar: document.getElementById("btn-exportar"),
     btnSyncNuvem: document.getElementById("btn-sync-nuvem"),
     statusQuiz: document.getElementById("status-quiz-admin"),
+    statusSync: document.getElementById("status-sincronizacao"),
+    avisoAcoes: document.getElementById("aviso-acoes-criticas"),
     cards: document.getElementById("cards-indicadores"),
     listaFases: document.getElementById("lista-fases"),
     listaPerguntas: document.getElementById("lista-perguntas"),
@@ -41,6 +45,22 @@
     confirmarAuditoria: document.getElementById("confirmar-auditoria"),
     cancelarAuditoria: document.getElementById("cancelar-auditoria")
   };
+
+  function setStatusSync(texto, tipo) {
+    if (!els.statusSync) return;
+    els.statusSync.textContent = texto;
+    els.statusSync.className = "status-sync" + (tipo ? " " + tipo : "");
+  }
+
+  function atualizarDisponibilidadeAcoes(ok) {
+    dadosRemotosOk = !!ok;
+    if (els.avisoAcoes) els.avisoAcoes.hidden = !!ok;
+    document.querySelectorAll("[data-excluir], [data-restaurar]").forEach(function (btn) {
+      btn.disabled = !ok;
+      if (!ok) btn.title = "Indisponível sem conexão com os dados";
+      else btn.removeAttribute("title");
+    });
+  }
 
   function autenticado() {
     return sessionStorage.getItem(STORAGE_AUTH) === "1";
@@ -66,7 +86,10 @@
   function mostrarPainel(ok) {
     els.login.hidden = ok;
     els.painel.hidden = !ok;
-    if (ok) atualizarTudo();
+    if (ok) {
+      if (Store) Store.assinarRealtime({});
+      atualizarTudo();
+    }
   }
 
   function normalizarParticipacao(p) {
@@ -132,22 +155,29 @@
 
   function sincronizarNuvem(callback) {
     if (!Store) {
-      if (callback) callback(false, "Store indisponível");
+      setStatusSync("Sem conexão com os dados", "erro");
+      atualizarDisponibilidadeAcoes(false);
+      if (callback) callback(false);
       return;
     }
-    Store.buscarRemoto({}).then(function (res) {
-      if (els.statusQuiz) {
-        if (res.ok) {
-          els.statusQuiz.textContent =
-            (els.statusQuiz.textContent.split(" · Nuvem")[0] || els.statusQuiz.textContent) +
-            " · Nuvem: sincronizada (" + (res.dados || []).length + " registros)";
-        } else {
-          els.statusQuiz.textContent =
-            (els.statusQuiz.textContent.split(" · Nuvem")[0] || els.statusQuiz.textContent) +
-            " · Nuvem: offline — execute ATIVAR-NUVEM.sql no Supabase";
-        }
+    setStatusSync("Reconectando...", "aviso");
+    Store.statusNuvem().then(function (st) {
+      if (!st.ok) {
+        setStatusSync("Sem conexão com os dados", "erro");
+        atualizarDisponibilidadeAcoes(false);
+        if (callback) callback(false, st.codigo);
+        return;
       }
-      if (callback) callback(!!res.ok, res.motivo);
+      Store.buscarRemoto({ incluirExcluidas: true }).then(function (res) {
+        if (res.ok) {
+          setStatusSync("Dados sincronizados", "ok");
+          atualizarDisponibilidadeAcoes(true);
+        } else {
+          setStatusSync("Sem conexão com os dados", "erro");
+          atualizarDisponibilidadeAcoes(false);
+        }
+        if (callback) callback(!!res.ok);
+      });
     });
   }
 
@@ -543,12 +573,13 @@
         "<td>" + (p.posicaoRanking || "—") + "</td>" +
         '<td><button type="button" class="btn btn-pequeno" data-corrigir="' + p.id + '">Corrigir público</button> ' +
         (p.status === "excluida" || p.excluida
-          ? '<button type="button" class="btn btn-pequeno" data-restaurar="' + p.id + '">Restaurar</button>'
-          : '<button type="button" class="btn btn-pequeno" data-excluir="' + p.id + '">Excluir</button>') +
+          ? '<button type="button" class="btn btn-pequeno" data-restaurar="' + p.id + '"' + (dadosRemotosOk ? "" : " disabled") + ">Restaurar</button>"
+          : '<button type="button" class="btn btn-pequeno" data-excluir="' + p.id + '"' + (dadosRemotosOk ? "" : " disabled") + ">Excluir</button>") +
         "</td>" +
         "</tr>"
       );
     }).join("") || '<tr><td colspan="12">Nenhum registro.</td></tr>';
+    atualizarDisponibilidadeAcoes(dadosRemotosOk);
   }
 
   function formatarData(iso) {
@@ -591,6 +622,12 @@
 
   function atualizarTudo() {
     atualizarStatusQuiz();
+    renderCards();
+    renderGraficos();
+    renderFases();
+    renderPerguntas();
+    renderResultados();
+    renderRankingAdmin();
     sincronizarNuvem(function () {
       renderCards();
       renderGraficos();
@@ -599,12 +636,6 @@
       renderResultados();
       renderRankingAdmin();
     });
-    renderCards();
-    renderGraficos();
-    renderFases();
-    renderPerguntas();
-    renderResultados();
-    renderRankingAdmin();
   }
 
   function ativarAba(id) {
@@ -640,10 +671,15 @@
   if (els.btnSyncNuvem) {
     els.btnSyncNuvem.addEventListener("click", function () {
       sincronizarNuvem(function (ok) {
-        atualizarTudo();
+        renderCards();
+        renderGraficos();
+        renderFases();
+        renderPerguntas();
+        renderResultados();
+        renderRankingAdmin();
         alert(ok
-          ? "Nuvem sincronizada. Os resultados de todos os dispositivos foram carregados."
-          : "Não foi possível sincronizar. Abra o Supabase SQL Editor e execute o arquivo ATIVAR-NUVEM.sql.");
+          ? "Dados atualizados com sucesso."
+          : "Não foi possível atualizar os dados neste momento. Verifique sua conexão e tente novamente.");
       });
     });
   }
@@ -697,7 +733,7 @@
         });
         alert(res.ok
           ? "Privacidade salva. O ranking público usará o novo formato de nome."
-          : "Salvo localmente. Para persistir na nuvem, execute ATIVAR-NUVEM.sql e autentique o admin no Supabase.");
+          : "Não foi possível salvar a privacidade neste momento. Verifique sua conexão e tente novamente.");
       });
     });
   }
@@ -820,7 +856,27 @@
     renderFases();
   });
 
-  var editandoExcluirId = null;
+  function setErroExcluir(msg) {
+    var el = document.getElementById("erro-excluir");
+    if (!el) return;
+    if (!msg) {
+      el.hidden = true;
+      el.textContent = "";
+      return;
+    }
+    el.hidden = false;
+    el.textContent = msg;
+  }
+
+  function setExcluindoUI(ativo) {
+    var btnConf = document.getElementById("confirmar-excluir");
+    var btnCancel = document.getElementById("cancelar-excluir");
+    if (btnConf) {
+      btnConf.disabled = !!ativo;
+      btnConf.textContent = ativo ? "Excluindo participação..." : "Excluir participação";
+    }
+    if (btnCancel) btnCancel.disabled = !!ativo;
+  }
 
   els.tabelaResultados.addEventListener("click", function (e) {
     var btnCorrigir = e.target.closest("[data-corrigir]");
@@ -841,6 +897,14 @@
     }
 
     if (btnExcluir) {
+      if (btnExcluir.disabled || !dadosRemotosOk) {
+        alert("Ações administrativas críticas não estão disponíveis porque a conexão segura com os dados não foi configurada.");
+        return;
+      }
+      if (!navigator.onLine) {
+        alert("Não foi possível concluir a exclusão neste momento. Verifique sua conexão e tente novamente.");
+        return;
+      }
       editandoExcluirId = btnExcluir.getAttribute("data-excluir");
       var pe = carregarParticipacoes().find(function (x) { return x.id === editandoExcluirId; });
       if (!pe) return;
@@ -850,20 +914,38 @@
         pe.quantidadeAcertos + " acertos · " + labelStatus(pe.status);
       document.getElementById("motivo-exclusao").value = "";
       document.getElementById("motivo-exclusao-detalhe").value = "";
+      setErroExcluir(null);
+      setExcluindoUI(false);
       document.getElementById("modal-excluir").hidden = false;
       return;
     }
 
     if (btnRestaurar && Store) {
+      if (btnRestaurar.disabled || !dadosRemotosOk) {
+        alert("Ações administrativas críticas não estão disponíveis porque a conexão segura com os dados não foi configurada.");
+        return;
+      }
       var idR = btnRestaurar.getAttribute("data-restaurar");
       if (!confirm("Restaurar esta participação ao ranking?")) return;
-      Store.restaurarParticipacao(idR).then(function () {
+      btnRestaurar.disabled = true;
+      Store.restaurarParticipacao(idR, "admin").then(function (res) {
+        if (!res || !res.ok) {
+          btnRestaurar.disabled = false;
+          alert(Store.mensagemErroAdmin(res && res.codigo));
+          return;
+        }
         registrarAuditoria({
           acao: "restaurar_participacao",
           entidade: "participacao",
           entidadeId: idR
         });
-        sincronizarNuvem(function () { atualizarTudo(); });
+        sincronizarNuvem(function () {
+          renderCards();
+          renderGraficos();
+          renderResultados();
+          renderRankingAdmin();
+        });
+        alert("Participação restaurada com sucesso. O ranking foi atualizado.");
       });
     }
   });
@@ -872,35 +954,55 @@
   var btnConfEx = document.getElementById("confirmar-excluir");
   if (btnCancelEx) {
     btnCancelEx.addEventListener("click", function () {
+      if (btnCancelEx.disabled) return;
       document.getElementById("modal-excluir").hidden = true;
       editandoExcluirId = null;
+      setErroExcluir(null);
+      setExcluindoUI(false);
     });
   }
   if (btnConfEx) {
     btnConfEx.addEventListener("click", function () {
       if (!editandoExcluirId || !Store) return;
-      var motivo = document.getElementById("motivo-exclusao").value;
-      if (motivo === "Outro") {
-        motivo = document.getElementById("motivo-exclusao-detalhe").value.trim() || "Outro";
-      }
-      if (!motivo) {
-        alert("Informe o motivo da exclusão.");
+      if (!dadosRemotosOk || !navigator.onLine) {
+        setErroExcluir("Não foi possível concluir a exclusão neste momento. Verifique sua conexão e tente novamente.");
         return;
       }
-      Store.excluirParticipacao(editandoExcluirId, motivo, "admin-local").then(function (res) {
+      var motivo = document.getElementById("motivo-exclusao").value;
+      if (motivo === "Outro") {
+        motivo = document.getElementById("motivo-exclusao-detalhe").value.trim() || "";
+      }
+      if (!motivo || String(motivo).trim().length < 2) {
+        setErroExcluir("Informe o motivo da exclusão.");
+        return;
+      }
+      setErroExcluir(null);
+      setExcluindoUI(true);
+      var idExcluir = editandoExcluirId;
+      Store.excluirParticipacao(idExcluir, motivo, "admin").then(function (res) {
+        if (!res || !res.ok || !res.oficial) {
+          setExcluindoUI(false);
+          setErroExcluir(Store.mensagemErroAdmin(res && res.codigo));
+          return;
+        }
         registrarAuditoria({
           acao: "excluir_participacao",
           entidade: "participacao",
-          entidadeId: editandoExcluirId,
+          entidadeId: idExcluir,
           motivo: motivo,
           novoValor: "excluida"
         });
         document.getElementById("modal-excluir").hidden = true;
         editandoExcluirId = null;
-        sincronizarNuvem(function () { atualizarTudo(); });
-        alert(res.ok
-          ? "Participação excluída e ranking recalculado."
-          : "Exclusão registrada localmente. Confirme a nuvem com ATIVAR-NUVEM.sql.");
+        setExcluindoUI(false);
+        setErroExcluir(null);
+        sincronizarNuvem(function () {
+          renderCards();
+          renderGraficos();
+          renderResultados();
+          renderRankingAdmin();
+        });
+        alert("Participação excluída com sucesso. O ranking foi atualizado.");
       });
     });
   }
@@ -1147,6 +1249,28 @@
   if (dataInput && QuizData.dataEvento()) dataInput.value = QuizData.dataEvento();
 
   mostrarPainel(autenticado());
+  if (Store) {
+    Store.onEvento(function (evento) {
+      if (!autenticado()) return;
+      if (evento === "realtime" || evento === "participacao_excluida") {
+        sincronizarNuvem(function () {
+          renderCards();
+          renderGraficos();
+          renderResultados();
+          renderRankingAdmin();
+        });
+      }
+    });
+  }
+  window.addEventListener("online", function () {
+    if (autenticado()) sincronizarNuvem(function () { renderResultados(); });
+  });
+  window.addEventListener("offline", function () {
+    if (autenticado()) {
+      setStatusSync("Sem conexão com os dados", "erro");
+      atualizarDisponibilidadeAcoes(false);
+    }
+  });
   setInterval(function () {
     if (autenticado()) atualizarStatusQuiz();
   }, 20000);
