@@ -242,7 +242,7 @@
       document.getElementById("filtro-exibir-excluidos").checked);
     var lista = (base || carregarParticipacoes()).slice();
     return lista.filter(function (p) {
-      var estaExcluida = !!(p.excluida || p.status === "excluida");
+      var estaExcluida = !!(p.excluida === true || p.excluida === "true" || p.status === "excluida" || p.status === "cancelada");
       if (f.data && p.dataEvento && String(p.dataEvento) !== String(f.data)) return false;
       if (f.fase !== "todas" && p.faseId !== f.fase) return false;
       if (f.publico !== "todos" && p.tipoPublico !== f.publico) return false;
@@ -383,11 +383,17 @@
     );
   }
 
+  function estaExcluidaReg(p) {
+    if (!p) return true;
+    if (p.excluida === true || p.excluida === "true" || p.excluida === 1) return true;
+    var st = String(p.status || "").toLowerCase().trim();
+    return st === "excluida" || st === "cancelada";
+  }
+
   function participacoesAtivasParaDash() {
     var f = filtrosAtivos();
     return carregarParticipacoes().filter(function (p) {
-      if (!p) return false;
-      if (p.excluida || p.status === "excluida" || p.status === "cancelada") return false;
+      if (estaExcluidaReg(p)) return false;
       if (f.data && p.dataEvento && String(p.dataEvento) !== String(f.data)) return false;
       if (f.fase !== "todas" && p.faseId !== f.fase) return false;
       if (f.publico !== "todos" && p.tipoPublico !== f.publico) return false;
@@ -656,12 +662,10 @@
 
   function atualizarTudo() {
     atualizarStatusQuiz();
-    renderCards();
-    renderGraficos();
     renderFases();
     renderPerguntas();
-    renderResultados();
-    renderRankingAdmin();
+    // Dashboard/resultados só depois da nuvem — evita mostrar cache antigo (ex.: Iniciadas=3)
+    setStatusSync("Reconectando...", "aviso");
     sincronizarNuvem(function () {
       renderCards();
       renderGraficos();
@@ -669,7 +673,7 @@
       renderPerguntas();
       renderResultados();
       renderRankingAdmin();
-    });
+    }, { publicar: false });
   }
 
   function ativarAba(id) {
@@ -1284,6 +1288,14 @@
   }
 
   /* init */
+  var UI_VER = "20261002f";
+  if (localStorage.getItem("quizEnableAdminUiVer") !== UI_VER) {
+    localStorage.setItem("quizEnableAdminUiVer", UI_VER);
+    try {
+      localStorage.removeItem("quizEnableParticipacoesCache");
+      localStorage.removeItem("quizEnableUltimaSync");
+    } catch (e) { /* ignore */ }
+  }
   if (!localStorage.getItem(QuizData.STORAGE_PERGUNTAS)) {
     QuizData.salvarPerguntas(QuizData.PERGUNTAS_PADRAO);
   }
