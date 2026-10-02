@@ -237,7 +237,13 @@
         };
       }
       var remotos = (res.data || []).map(normalizar);
-      salvarCache(mesclarPorId(lerCache().map(normalizar), remotos));
+      // Nuvem é a fonte oficial: substitui o cache (mantém só pendências locais ainda não salvas)
+      var pendentesLocais = lerCache().map(normalizar).filter(function (p) {
+        if (!p || !p.id || !p.pendente_sync) return false;
+        var noRemoto = remotos.some(function (r) { return r.id === p.id; });
+        return !noRemoto;
+      });
+      salvarCache(remotos.concat(pendentesLocais));
       marcarSync();
       var filtrados = remotos.filter(function (p) {
         if (!filtros.incluirExcluidas && (p.excluida || p.status === "excluida")) return false;

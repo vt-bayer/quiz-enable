@@ -383,6 +383,18 @@
     );
   }
 
+  function participacoesAtivasParaDash() {
+    var f = filtrosAtivos();
+    return carregarParticipacoes().filter(function (p) {
+      if (!p) return false;
+      if (p.excluida || p.status === "excluida" || p.status === "cancelada") return false;
+      if (f.data && p.dataEvento && String(p.dataEvento) !== String(f.data)) return false;
+      if (f.fase !== "todas" && p.faseId !== f.fase) return false;
+      if (f.publico !== "todos" && p.tipoPublico !== f.publico) return false;
+      return true;
+    });
+  }
+
   function renderGraficos() {
     var m = metricas(filtrarParticipacoes());
     var maxPub = Math.max(m.bayer, m.parceiros, 1);
@@ -411,17 +423,10 @@
       barra("Média Bayer", m.mediaBayer, maxMedia, " pts") +
       barra("Média parceiros", m.mediaParceiros, maxMedia, " pts");
 
-    var todas = carregarParticipacoes();
-    var f = filtrosAtivos();
+    var ativas = participacoesAtivasParaDash();
     var htmlConc = "";
     fases.forEach(function (id, i) {
-      var grupo = todas.filter(function (p) {
-        if (p.excluida || p.status === "excluida") return false;
-        if (p.faseId !== id) return false;
-        if (f.data && p.dataEvento && String(p.dataEvento) !== String(f.data)) return false;
-        if (f.publico !== "todos" && p.tipoPublico !== f.publico) return false;
-        return true;
-      });
+      var grupo = ativas.filter(function (p) { return p.faseId === id; });
       var ini = grupo.length;
       var conc = grupo.filter(function (p) { return p.status === "concluida"; }).length;
       var inc = grupo.filter(function (p) { return p.status === "incompleta"; }).length;
