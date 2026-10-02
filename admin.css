@@ -190,6 +190,49 @@ button:focus-visible {
   font-weight: 600;
 }
 
+.status-wrap {
+  flex: 1 1 18rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.status-sync {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--texto-sec);
+}
+
+.status-sync.ok {
+  color: var(--ok);
+}
+
+.status-sync.aviso {
+  color: #8a6d00;
+}
+
+.status-sync.erro {
+  color: var(--erro);
+}
+
+.aviso-acoes {
+  margin: 0;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.88rem;
+  background: #FFF4F0;
+  border: 0.1rem solid #F0C2B0;
+  border-radius: 0.5rem;
+  color: #7a2e1a;
+}
+
+.erro {
+  margin: 0.5rem 0 0;
+  color: var(--erro);
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
 .grupo-botoes {
   display: flex;
   flex-wrap: wrap;
@@ -307,9 +350,11 @@ button:focus-visible {
   border-radius: 999px;
 }
 
-.subtitulo-secao {
-  margin: -0.35rem 0 1rem;
-  color: var(--texto-sec);
+.check-inline {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.5rem !important;
   font-weight: 600;
 }
 
