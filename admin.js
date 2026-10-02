@@ -52,12 +52,14 @@
     els.statusSync.className = "status-sync" + (tipo ? " " + tipo : "");
   }
 
-  function atualizarDisponibilidadeAcoes(ok) {
-    dadosRemotosOk = !!ok;
-    if (els.avisoAcoes) els.avisoAcoes.hidden = !!ok;
+  function atualizarDisponibilidadeAcoes(ok, opcoes) {
+    opcoes = opcoes || {};
+    if (typeof ok === "boolean") dadosRemotosOk = ok;
+    var mostrarAviso = !dadosRemotosOk && !opcoes.reconectando;
+    if (els.avisoAcoes) els.avisoAcoes.hidden = !mostrarAviso;
     document.querySelectorAll("[data-excluir], [data-restaurar]").forEach(function (btn) {
-      btn.disabled = !ok;
-      if (!ok) btn.title = "Indisponível sem conexão com os dados";
+      btn.disabled = !dadosRemotosOk;
+      if (!dadosRemotosOk) btn.title = "Indisponível sem conexão com os dados";
       else btn.removeAttribute("title");
     });
   }
@@ -162,6 +164,7 @@
       return;
     }
     setStatusSync("Reconectando...", "aviso");
+    atualizarDisponibilidadeAcoes(dadosRemotosOk, { reconectando: true });
     Store.statusNuvem().then(function (st) {
       if (!st.ok) {
         setStatusSync("Sem conexão com os dados", "erro");
@@ -169,22 +172,31 @@
         if (callback) callback(false, st.codigo);
         return;
       }
-      var devePublicar = opcoes.publicar !== false;
+      // Publicar pendentes só sob demanda (botão Atualizar), para não travar o painel
+      var devePublicar = opcoes.publicar === true;
       var publicar = (devePublicar && Store.publicarPendentes)
         ? Store.publicarPendentes()
         : Promise.resolve({ ok: true });
       publicar.then(function () {
-        Store.buscarRemoto({ incluirExcluidas: true }).then(function (res) {
-          if (res.ok) {
-            setStatusSync("Dados sincronizados", "ok");
-            atualizarDisponibilidadeAcoes(true);
-          } else {
-            setStatusSync("Sem conexão com os dados", "erro");
-            atualizarDisponibilidadeAcoes(false);
-          }
-          if (callback) callback(!!res.ok);
-        });
+        return Store.buscarRemoto({ incluirExcluidas: true });
+      }).then(function (res) {
+        if (res && res.ok) {
+          setStatusSync("Dados sincronizados", "ok");
+          atualizarDisponibilidadeAcoes(true);
+        } else {
+          setStatusSync("Sem conexão com os dados", "erro");
+          atualizarDisponibilidadeAcoes(false);
+        }
+        if (callback) callback(!!(res && res.ok));
+      }).catch(function () {
+        setStatusSync("Sem conexão com os dados", "erro");
+        atualizarDisponibilidadeAcoes(false);
+        if (callback) callback(false);
       });
+    }).catch(function () {
+      setStatusSync("Sem conexão com os dados", "erro");
+      atualizarDisponibilidadeAcoes(false);
+      if (callback) callback(false);
     });
   }
 

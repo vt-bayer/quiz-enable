@@ -457,33 +457,46 @@
       return Promise.resolve({ ok: false, enviados: 0 });
     }
     var locais = lerCache().map(normalizar).filter(function (p) {
-      return p && p.id && p.participante_nome && p.fase_id;
+      return p && p.id && p.participante_nome && p.fase_id && p.tipo_publico;
     });
     if (!locais.length) return Promise.resolve({ ok: true, enviados: 0 });
 
+    // Envia em lotes pequenos para não travar a UI
     var linhas = locais.map(function (p) {
       var linha = paraLinhaSupabase(p);
-      // Nao forçar status "excluida" se o banco ainda nao aceitar o valor
-      if (linha.status === "excluida") {
-        linha.excluida = true;
+      if (linha.status === "excluida") linha.excluida = true;
+      // Evita rejeição por data inválida
+      if (linha.data_evento && !/^\d{4}-\d{2}-\d{2}$/.test(String(linha.data_evento))) {
+        linha.data_evento = null;
       }
       return linha;
     });
 
-    return cliente
-      .from(TABELA)
-      .upsert(linhas, { onConflict: "id" })
-      .select("id")
-      .then(function (res) {
-        if (res.error) {
-          return { ok: false, enviados: 0, motivo: res.error.message };
-        }
+    var i = 0;
+    var enviados = 0;
+    function proximo() {
+      if (i >= linhas.length) {
         marcarSync();
-        return { ok: true, enviados: (res.data || []).length };
-      })
-      .catch(function (err) {
-        return { ok: false, enviados: 0, motivo: (err && err.message) || "falha" };
-      });
+        return Promise.resolve({ ok: true, enviados: enviados });
+      }
+      var pedaco = linhas.slice(i, i + 10);
+      i += 10;
+      return cliente
+        .from(TABELA)
+        .upsert(pedaco, { onConflict: "id" })
+        .select("id")
+        .then(function (res) {
+          if (res.error) {
+            return { ok: false, enviados: enviados, motivo: res.error.message };
+          }
+          enviados += (res.data || []).length;
+          return proximo();
+        })
+        .catch(function (err) {
+          return { ok: false, enviados: enviados, motivo: (err && err.message) || "falha" };
+        });
+    }
+    return proximo();
   }
 
   function aplicarExclusaoUpdate(id, motivo, adminId, comStatusExcluida) {
