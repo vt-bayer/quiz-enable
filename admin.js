@@ -242,11 +242,13 @@
       document.getElementById("filtro-exibir-excluidos").checked);
     var lista = (base || carregarParticipacoes()).slice();
     return lista.filter(function (p) {
-      if (f.data && p.dataEvento !== f.data) return false;
+      var estaExcluida = !!(p.excluida || p.status === "excluida");
+      if (f.data && p.dataEvento && String(p.dataEvento) !== String(f.data)) return false;
       if (f.fase !== "todas" && p.faseId !== f.fase) return false;
       if (f.publico !== "todos" && p.tipoPublico !== f.publico) return false;
-      if (f.status === "excluida") return p.status === "excluida" || p.excluida;
-      if (!exibirExcluidos && (p.status === "excluida" || p.excluida)) return false;
+      if (f.status === "excluida") return estaExcluida;
+      // Padrão: nunca mostrar excluídas (exceto se o admin marcar o checkbox)
+      if (estaExcluida && !exibirExcluidos) return false;
       if (f.status !== "todas" && f.status !== "excluida" && p.status !== f.status) return false;
       return true;
     });
@@ -302,13 +304,16 @@
 
   function metricas(listaFiltrada) {
     var iniciadas = carregarParticipacoes().filter(function (p) {
+      if (p.excluida || p.status === "excluida") return false;
       var f = filtrosAtivos();
-      if (f.data && p.dataEvento !== f.data) return false;
+      if (f.data && p.dataEvento && String(p.dataEvento) !== String(f.data)) return false;
       if (f.fase !== "todas" && p.faseId !== f.fase) return false;
       if (f.publico !== "todos" && p.tipoPublico !== f.publico) return false;
       return true;
     });
-    var concluidas = listaFiltrada.filter(function (p) { return p.status === "concluida"; });
+    var concluidas = listaFiltrada.filter(function (p) {
+      return p.status === "concluida" && !p.excluida;
+    });
     var base = filtrosAtivos().status === "concluida" || filtrosAtivos().status === "todas"
       ? (filtrosAtivos().status === "concluida" ? concluidas : listaFiltrada)
       : listaFiltrada;
@@ -554,6 +559,7 @@
   function rankingFase(faseId, publico) {
     var lista = carregarParticipacoes()
       .filter(function (p) {
+        if (p.excluida || p.status === "excluida") return false;
         if (p.faseId !== faseId || p.status !== "concluida") return false;
         if (publico && publico !== "todos" && p.tipoPublico !== publico) return false;
         return true;
@@ -1014,11 +1020,14 @@
           motivo: motivo,
           novoValor: "excluida"
         });
+        // Garante sumiço imediato na UI, independente do sync
+        if (Store.marcarExcluidaLocal) {
+          Store.marcarExcluidaLocal(idExcluir, motivo, "admin");
+        }
         document.getElementById("modal-excluir").hidden = true;
         editandoExcluirId = null;
         setExcluindoUI(false);
         setErroExcluir(null);
-        // Atualiza UI pelo cache oficial local; evita sync imediato que pode reverter exclusão
         renderCards();
         renderGraficos();
         renderResultados();
@@ -1030,7 +1039,7 @@
             renderResultados();
             renderRankingAdmin();
           }, { publicar: false });
-        }, 1500);
+        }, 2500);
         alert("Participação excluída com sucesso. O ranking foi atualizado.");
       }).catch(function () {
         setExcluindoUI(false);

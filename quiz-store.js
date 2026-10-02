@@ -555,10 +555,10 @@
         }
         var salvo = normalizar(row);
         salvo.excluida = true;
-        if (comStatusExcluida) salvo.status = "excluida";
-        else if (salvo.status === "concluida") {
-          // banco antigo: marca só a flag, UI trata como excluída
-        }
+        salvo.status = "excluida";
+        salvo.posicao_ranking = null;
+        salvo.motivo_exclusao = String(motivo).trim();
+        salvo.excluida_em = salvo.excluida_em || agoraIso();
         upsertLocal(salvo);
         return recalcularRemoto(salvo.fase_id).then(function () {
           marcarSync();
@@ -620,6 +620,19 @@
       }
       return aplicarExclusaoUpdate(id, motivo, adminId, true);
     });
+  }
+
+  function marcarExcluidaLocal(id, motivo, adminId) {
+    var atual = lerCache().map(normalizar).find(function (p) { return p && p.id === id; }) || { id: id };
+    return upsertLocal(Object.assign({}, atual, {
+      status: "excluida",
+      excluida: true,
+      excluida_em: agoraIso(),
+      excluida_por: adminId || "admin",
+      motivo_exclusao: String(motivo || "").trim() || "Excluída",
+      posicao_ranking: null,
+      atualizado_em: agoraIso()
+    }));
   }
 
   function excluirPorUpdateDireto(id, motivo, adminId) {
@@ -749,6 +762,7 @@
     excluirParticipacao: excluirParticipacao,
     restaurarParticipacao: restaurarParticipacao,
     mensagemErroAdmin: mensagemErroAdmin,
-    publicarPendentes: publicarPendentes
+    publicarPendentes: publicarPendentes,
+    marcarExcluidaLocal: marcarExcluidaLocal
   };
 })(window);
