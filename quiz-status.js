@@ -1,6 +1,6 @@
 /**
  * Estado centralizado do quiz — fuso America/Sao_Paulo
- * Horários das fases são apenas identificação/sugestão.
+ * Horários das fases são apenas identificação.
  * O quiz pode ser iniciado a qualquer momento (salvo pausa/encerramento manual).
  */
 (function (global) {
@@ -104,11 +104,11 @@
 
     if (faseAtiva) {
       resultado.mensagem =
-        "Escolha a fase e comece quando quiser. Horários são apenas para identificação: " +
+        "Escolha a fase e comece quando quiser. Os horários servem só para identificar cada fase (" +
         formatarHorario(faseAtiva.horarioInicio) +
         " às " +
         formatarHorario(faseAtiva.horarioFim) +
-        ".";
+        ").";
     }
 
     return resultado;
