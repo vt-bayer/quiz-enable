@@ -131,7 +131,7 @@
     }
     Store.rankingFase(faseId, true).then(function (res) {
       if (!res.ok) {
-        anunciar("Usando cache local. Ative a nuvem no Supabase (arquivo ATIVAR-NUVEM.sql) para sincronizar entre dispositivos.");
+        anunciar("Exibindo a última atualização disponível. Verifique sua conexão para sincronizar com outros dispositivos.");
       }
       callback(res.ranking || rankingFaseLocal(faseId, true));
     });
@@ -369,7 +369,7 @@
       salvar.then(function (res) {
         if (!res.ok) {
           if (Store) Store.upsertLocal(registro);
-          anunciar("Participação salva neste aparelho. Para sincronizar entre celulares, execute ATIVAR-NUVEM.sql no Supabase.");
+          anunciar("Participação salva neste aparelho. Não foi possível sincronizar agora — verifique sua conexão.");
         }
         mostrarTela(els.telaQuiz);
         renderizarPergunta();
