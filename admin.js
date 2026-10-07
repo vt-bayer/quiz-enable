@@ -1288,7 +1288,7 @@
   }
 
   /* init */
-  var UI_VER = "20261002f";
+  var UI_VER = "20261006a";
   if (localStorage.getItem("quizEnableAdminUiVer") !== UI_VER) {
     localStorage.setItem("quizEnableAdminUiVer", UI_VER);
     try {
@@ -1302,11 +1302,11 @@
   if (!localStorage.getItem(QuizData.STORAGE_FASES)) {
     QuizData.salvarFases(QuizData.FASES_PADRAO);
   }
-  if (!QuizData.dataEvento()) {
-    QuizData.salvarDataEvento(QuizStatus.agoraSP().dateStr);
-  }
+  // Sempre alinhar data do evento/filtro ao dia atual (America/Sao_Paulo)
+  var hojeSP = QuizStatus.agoraSP().dateStr;
+  QuizData.salvarDataEvento(hojeSP);
   var dataInput = document.getElementById("filtro-data");
-  if (dataInput && QuizData.dataEvento()) dataInput.value = QuizData.dataEvento();
+  if (dataInput) dataInput.value = hojeSP;
 
   mostrarPainel(autenticado());
   var syncDebounceTimer = null;
